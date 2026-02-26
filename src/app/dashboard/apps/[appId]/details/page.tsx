@@ -26,8 +26,6 @@ export default function AppDetailsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold tracking-tight">App details</h1>
-
       {/* Identifiers (read-only) */}
       <section className="space-y-4">
         <h3 className="section-title">Identifiers</h3>
@@ -98,6 +96,43 @@ export default function AppDetailsPage() {
               </span>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* URLs */}
+      <section className="space-y-4">
+        <h3 className="section-title">URLs</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">
+              Support URL
+            </label>
+            <Input
+              defaultValue="https://example.com/support"
+              placeholder="https://..."
+              className="font-mono text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">
+              Marketing URL
+            </label>
+            <Input
+              defaultValue="https://example.com"
+              placeholder="https://..."
+              className="font-mono text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">
+              Privacy policy URL
+            </label>
+            <Input
+              defaultValue="https://example.com/privacy"
+              placeholder="https://..."
+              className="font-mono text-sm"
+            />
+          </div>
         </div>
       </section>
 

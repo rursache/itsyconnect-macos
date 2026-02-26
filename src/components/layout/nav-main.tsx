@@ -46,6 +46,7 @@ function getNavGroups(appId: string): NavGroup[] {
         { title: "Store listing", href: `${base}/store-listing`, icon: Storefront },
         { title: "Screenshots", href: `${base}/screenshots`, icon: Images },
         { title: "App review", href: `${base}/review`, icon: Stamp },
+        { title: "App details", href: `${base}/details`, icon: Info },
       ],
     },
     {
@@ -64,7 +65,6 @@ function getNavGroups(appId: string): NavGroup[] {
     {
       label: "Configure",
       items: [
-        { title: "App details", href: `${base}/details`, icon: Info },
         { title: "Pricing", href: `${base}/pricing`, icon: CurrencyDollar },
         { title: "In-app purchases", href: `${base}/iap`, icon: Package },
         { title: "Privacy", href: `${base}/privacy`, icon: ShieldCheck },

@@ -54,8 +54,6 @@ interface LocaleFields {
   keywords: string;
   whatsNew: string;
   promotionalText: string;
-  supportUrl: string;
-  marketingUrl: string;
 }
 
 function emptyLocaleFields(): LocaleFields {
@@ -66,8 +64,6 @@ function emptyLocaleFields(): LocaleFields {
     keywords: "",
     whatsNew: "",
     promotionalText: "",
-    supportUrl: "",
-    marketingUrl: "",
   };
 }
 
@@ -81,8 +77,6 @@ function buildLocaleData(versionId: string): Record<string, LocaleFields> {
       keywords: loc.keywords ?? "",
       whatsNew: loc.whatsNew ?? "",
       promotionalText: loc.promotionalText ?? "",
-      supportUrl: loc.supportUrl ?? "",
-      marketingUrl: loc.marketingUrl ?? "",
     };
   }
   return data;
@@ -389,40 +383,6 @@ export default function StoreListingPage() {
               </Card>
             </section>
 
-            {/* URLs */}
-            <section className="space-y-4">
-              <h3 className="section-title">URLs</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">
-                    Support URL
-                  </label>
-                  <Input
-                    value={current.supportUrl}
-                    onChange={(e) =>
-                      updateField("supportUrl", e.target.value)
-                    }
-                    readOnly={readOnly}
-                    placeholder="https://..."
-                    className="font-mono text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">
-                    Marketing URL
-                  </label>
-                  <Input
-                    value={current.marketingUrl}
-                    onChange={(e) =>
-                      updateField("marketingUrl", e.target.value)
-                    }
-                    readOnly={readOnly}
-                    placeholder="https://..."
-                    className="font-mono text-sm"
-                  />
-                </div>
-              </div>
-            </section>
           </>
         )}
 
@@ -539,9 +499,7 @@ function AppStorePreview({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Preview
-      </p>
+      <h3 className="section-title">Preview</h3>
       <div className="w-64 rounded-2xl border bg-card p-3">
         <div className="flex items-center gap-3">
           <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-sm">

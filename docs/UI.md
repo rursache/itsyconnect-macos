@@ -74,7 +74,7 @@ The dashboard layout (`src/app/dashboard/layout.tsx`) wraps all page content in:
 
 ```tsx
 <div className="flex flex-1 flex-col gap-4 px-8 pb-8">
-  <div className="w-full max-w-3xl">
+  <div className="mx-auto w-full max-w-4xl">
     {children}
   </div>
 </div>
@@ -82,7 +82,7 @@ The dashboard layout (`src/app/dashboard/layout.tsx`) wraps all page content in:
 
 **All horizontal padding comes from the layout.** Pages must never add their own `px-*` to the root element – this causes double-padding inconsistency.
 
-**Content is capped at `max-w-3xl` (48rem) and left-aligned.** This keeps form pages readable on wide screens. Pages must not override this width – it is set once in the layout.
+**Content is capped at `max-w-4xl` (56rem / 896px) and centred.** This keeps form pages readable on wide screens while giving tables enough room. Pages must not override this width – it is set once in the layout.
 
 ### Page root patterns
 
