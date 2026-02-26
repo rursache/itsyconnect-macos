@@ -42,9 +42,13 @@ export default function SetupPage() {
           router.replace("/dashboard");
         } else {
           setReady(true);
+          (window as { electron?: { ready: () => void } }).electron?.ready();
         }
       })
-      .catch(() => setReady(true));
+      .catch(() => {
+        setReady(true);
+        (window as { electron?: { ready: () => void } }).electron?.ready();
+      });
   }, [router]);
 
   // Step 2 – ASC credentials

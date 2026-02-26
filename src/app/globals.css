@@ -120,8 +120,11 @@
   * {
     @apply border-border;
   }
-  *:focus {
-    outline: none;
+  *:focus,
+  *:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+    --tw-ring-shadow: none !important;
   }
   body {
     @apply bg-background text-foreground font-sans select-none;

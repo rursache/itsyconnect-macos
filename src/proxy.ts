@@ -22,17 +22,20 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check if setup is needed (no active ASC credentials)
-  try {
-    const healthUrl = new URL("/api/health", request.url);
-    const res = await fetch(healthUrl);
-    const data = await res.json();
+  // Only check setup on root – avoids health check on every navigation
+  if (pathname === "/") {
+    try {
+      const healthUrl = new URL("/api/health", request.url);
+      const res = await fetch(healthUrl);
+      const data = await res.json();
 
-    if (data.setup) {
-      return NextResponse.redirect(new URL("/setup", request.url));
+      if (data.setup) {
+        return NextResponse.redirect(new URL("/setup", request.url));
+      }
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    } catch {
+      // If health check fails, let the request through
     }
-  } catch {
-    // If health check fails, let the request through
   }
 
   return NextResponse.next();

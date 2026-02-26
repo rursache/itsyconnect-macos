@@ -25,7 +25,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  allowedDevOrigins: ["http://127.0.0.1"],
+  allowedDevOrigins: ["127.0.0.1"],
   images: {
     remotePatterns: [
       {

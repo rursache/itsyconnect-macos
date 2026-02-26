@@ -22,6 +22,7 @@ const config: ForgeConfig = {
       if (filePath.startsWith("/electron")) return false;
       if (filePath.startsWith("/.next/standalone")) return false;
       if (filePath.startsWith("/drizzle")) return false;
+      if (filePath.startsWith("/public")) return false;
       return true;
     },
   },

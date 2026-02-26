@@ -1,12 +1,33 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { DashboardBreadcrumb } from "@/components/layout/dashboard-breadcrumb";
 import { HeaderVersionPicker } from "@/components/layout/header-version-picker";
 import { HeaderBuildsPicker } from "@/components/layout/header-builds-picker";
-import { AppsProvider } from "@/lib/apps-context";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { AppsProvider, useApps } from "@/lib/apps-context";
+
+declare global {
+  interface Window {
+    electron?: { ready: () => void };
+  }
+}
+
+function ReadySignal() {
+  const { loading } = useApps();
+
+  useEffect(() => {
+    if (!loading) {
+      // Delay to let the router redirect settle before showing window
+      const id = setTimeout(() => window.electron?.ready(), 300);
+      return () => clearTimeout(id);
+    }
+  }, [loading]);
+
+  return null;
+}
 
 export default function DashboardLayout({
   children,
@@ -15,6 +36,7 @@ export default function DashboardLayout({
 }) {
   return (
     <AppsProvider>
+      <ReadySignal />
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
@@ -28,6 +50,7 @@ export default function DashboardLayout({
                   <HeaderBuildsPicker />
                   <HeaderVersionPicker />
                 </Suspense>
+                <ThemeToggle />
               </div>
             </div>
           </header>

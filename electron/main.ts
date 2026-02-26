@@ -1,4 +1,4 @@
-import { app, BrowserWindow, safeStorage } from "electron";
+import { app, BrowserWindow, Menu, safeStorage, ipcMain } from "electron";
 import { spawn, ChildProcess } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
@@ -54,7 +54,7 @@ async function startDevServer(): Promise<number> {
   const port = 3000;
   const nextBin = path.join(app.getAppPath(), "node_modules", ".bin", "next");
 
-  nextProcess = spawn(nextBin, ["dev", "--turbopack", "--port", String(port)], {
+  nextProcess = spawn(nextBin, ["dev", "--turbopack", "--hostname", "127.0.0.1", "--port", String(port)], {
     env: process.env,
     stdio: "inherit",
     cwd: app.getAppPath(),
@@ -98,6 +98,64 @@ function waitForServer(port: number, timeout = 30_000): Promise<void> {
   });
 }
 
+// --- Menu ---
+
+function setupMenu(): void {
+  const appName = "Itsyship";
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: appName,
+      submenu: [
+        { role: "about", label: `About ${appName}` },
+        { type: "separator" },
+        { role: "hide", label: `Hide ${appName}` },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { role: "quit", label: `Quit ${appName}` },
+      ],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" },
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "Window",
+      submenu: [
+        { role: "minimize" },
+        { role: "zoom" },
+        { type: "separator" },
+        { role: "front" },
+        { role: "close" },
+      ],
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 // --- BrowserWindow ---
 
 let mainWindow: BrowserWindow | null = null;
@@ -106,7 +164,9 @@ function createWindow(port: number): void {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false,
     titleBarStyle: "hiddenInset",
+    icon: path.join(app.getAppPath(), "public", "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -114,7 +174,11 @@ function createWindow(port: number): void {
     },
   });
 
-  mainWindow.loadURL(`http://127.0.0.1:${port}`);
+  mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard`);
+
+  ipcMain.once("app-ready", () => {
+    mainWindow?.show();
+  });
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -139,6 +203,8 @@ if (!gotLock) {
     process.env.ELECTRON = "1";
     ensureMasterKey();
     setDatabasePath();
+    app.name = "Itsyship";
+    setupMenu();
 
     const port = isDev ? await startDevServer() : await startProdServer();
     createWindow(port);
