@@ -13,7 +13,7 @@ Next.js process
 ├── /lib/ai/*         → Vercel AI SDK integration
 ├── /lib/db/*         → Drizzle schema, queries, migrations
 ├── /lib/sync/*       → Background data sync worker
-└── /data/itsyship.db → SQLite (Docker volume mount)
+└── /data/itsyship.db → SQLite database
 ```
 
 ## Database
@@ -27,17 +27,16 @@ PRAGMA busy_timeout = 5000;
 PRAGMA synchronous = NORMAL;
 ```
 
-SQLite is the right choice for this workload. Max scale is 30-50 users, 20-30 apps, thousands of versions/builds. SQLite handles millions of rows. Reads are fast (served from memory after first access), writes are infrequent (config changes, cache refreshes). Single file means simple Docker volume mount and trivial backups. Same DB engine works for a future Electron desktop app.
+SQLite is the right choice for this workload – a local-only desktop app with one user. Reads are fast (served from memory after first access), writes are infrequent (config changes, cache refreshes). Single file means trivial backups.
 
 ### Schema
 
-All tables use Drizzle ORM. Timestamps are ISO 8601 strings. IDs are ULIDs (sortable, no coordination needed for future multi-user).
+All tables use Drizzle ORM. Timestamps are ISO 8601 strings. IDs are ULIDs (sortable).
 
 **Core tables:**
 
 | Table | Purpose |
 |---|---|
-| `users` | id, name, email, passwordHash, role (admin/member), createdAt |
 | `ascCredentials` | id, issuerId, keyId, encryptedPrivateKey, isActive, createdAt |
 | `aiSettings` | id, provider, modelId, encryptedApiKey, updatedAt |
 
@@ -70,35 +69,6 @@ Sync worker deduplicates: if a fetch for a resource is already in-flight, new re
 
 ## Security
 
-### Authentication
-
-- **iron-session** encrypted cookies. HttpOnly, Secure (in production), SameSite=Lax.
-- Password hashing with **argon2** (preferred) or bcrypt.
-- Session contains `userId` and `role`. 7-day expiry.
-- Admin user created via the onboarding wizard on first run (name, email, password).
-- Future: multi-user with invite flow, but schema supports it from day one.
-
-### CSRF protection
-
-- All mutation routes (POST/PUT/PATCH/DELETE) validate the `Origin` header matches the app's origin.
-- SameSite=Lax cookies prevent cross-site request forgery for top-level navigations.
-- No custom CSRF tokens needed – Origin validation + SameSite cookies is sufficient for same-origin API routes.
-
-### Rate limiting
-
-Two levels:
-
-1. **Internal rate limiting** – protect our own API routes:
-   - Auth endpoints: 5 attempts per minute per IP (brute force protection)
-   - All other routes: 60 requests per minute per user
-   - Implementation: in-memory sliding window counter (no Redis needed at this scale)
-   - Returns `429 Too Many Requests` with `Retry-After` header
-
-2. **ASC API rate limiting** – respect Apple's limits:
-   - Token bucket: 5 requests/second sustained
-   - Automatic retry with exponential backoff on 429
-   - Never exceed Apple's rate limits – queue requests if needed
-
 ### Input validation
 
 - **Zod schemas** for every API route input. Validate before any processing.
@@ -116,7 +86,7 @@ Two levels:
 
 ### HTTP security headers
 
-Set via Next.js middleware or `next.config.ts`:
+Set via `next.config.ts`:
 
 - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
 - `X-Content-Type-Options: nosniff`
@@ -131,7 +101,6 @@ Validated at startup with Zod. App refuses to start if required vars are missing
 | Variable | Required | Purpose |
 |---|---|---|
 | `ENCRYPTION_MASTER_KEY` | Yes | 32-byte hex key for envelope encryption |
-| `SESSION_SECRET` | Yes | 32+ char secret for iron-session |
 | `PORT` | No | Server port (default 3000) |
 
 ## API conventions
@@ -139,8 +108,8 @@ Validated at startup with Zod. App refuses to start if required vars are missing
 - All routes under `/app/api/`.
 - JSON request/response. Content-Type validation on mutations.
 - Consistent error format: `{ error: string, details?: unknown }`.
-- HTTP status codes: 200 (ok), 201 (created), 400 (bad input), 401 (not authenticated), 403 (not authorised), 404 (not found), 429 (rate limited), 500 (server error).
-- Every route handler: validate session → validate input (Zod) → business logic → response.
+- HTTP status codes: 200 (ok), 201 (created), 400 (bad input), 404 (not found), 500 (server error).
+- Every route handler: validate input (Zod) → business logic → response.
 - No business logic in route handlers – delegate to service functions in `/lib/`.
 
 ## Testing
@@ -150,7 +119,7 @@ Validated at startup with Zod. App refuses to start if required vars are missing
 - **MSW** (Mock Service Worker) for mocking ASC API responses in tests.
 - Test database uses in-memory SQLite (`:memory:`).
 - 100% coverage target for business logic. UI components tested via E2E.
-- Every API route has at least: happy path, validation error, auth error tests.
+- Every API route has at least: happy path, validation error tests.
 
 ## ASC API wrapper
 

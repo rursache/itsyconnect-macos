@@ -4,7 +4,6 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { encrypt, decrypt } from "@/lib/encryption";
-import { hashPassword, verifyPassword } from "@/lib/auth";
 import { ulid } from "@/lib/ulid";
 
 const TEST_MASTER_KEY =
@@ -14,19 +13,11 @@ function createTestDb() {
   const sqlite = new Database(":memory:");
   sqlite.pragma("foreign_keys = ON");
   sqlite.exec(`
-    CREATE TABLE users (
-      id TEXT PRIMARY KEY NOT NULL,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'member',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
     CREATE TABLE asc_credentials (
       id TEXT PRIMARY KEY NOT NULL,
       issuer_id TEXT NOT NULL,
       key_id TEXT NOT NULL,
+      vendor_id TEXT,
       encrypted_private_key TEXT NOT NULL,
       iv TEXT NOT NULL,
       auth_tag TEXT NOT NULL,
@@ -243,78 +234,5 @@ describe("settings: AI", () => {
       encryptedDek: all[0].encryptedDek,
     });
     expect(decrypted).toBe("new-key");
-  });
-});
-
-describe("settings: profile", () => {
-  let db: ReturnType<typeof createTestDb>;
-
-  beforeEach(() => {
-    db = createTestDb();
-  });
-
-  it("updates name and email", async () => {
-    const userId = ulid();
-    const now = new Date().toISOString();
-
-    db.insert(schema.users)
-      .values({
-        id: userId,
-        name: "Old Name",
-        email: "old@example.com",
-        passwordHash: await hashPassword("password"),
-        role: "admin",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    db.update(schema.users)
-      .set({ name: "New Name", email: "new@example.com", updatedAt: new Date().toISOString() })
-      .where(eq(schema.users.id, userId))
-      .run();
-
-    const user = db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, userId))
-      .get();
-
-    expect(user!.name).toBe("New Name");
-    expect(user!.email).toBe("new@example.com");
-  });
-
-  it("changes password with verification", async () => {
-    const userId = ulid();
-    const now = new Date().toISOString();
-    const oldHash = await hashPassword("old-password");
-
-    db.insert(schema.users)
-      .values({
-        id: userId,
-        name: "User",
-        email: "user@example.com",
-        passwordHash: oldHash,
-        role: "admin",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    // Verify current password
-    const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
-    expect(await verifyPassword("old-password", user!.passwordHash)).toBe(true);
-    expect(await verifyPassword("wrong", user!.passwordHash)).toBe(false);
-
-    // Update password
-    const newHash = await hashPassword("new-password");
-    db.update(schema.users)
-      .set({ passwordHash: newHash })
-      .where(eq(schema.users.id, userId))
-      .run();
-
-    const updated = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
-    expect(await verifyPassword("new-password", updated!.passwordHash)).toBe(true);
-    expect(await verifyPassword("old-password", updated!.passwordHash)).toBe(false);
   });
 });

@@ -1,16 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
-  CaretUpDown,
   Check,
   GearSix,
   Monitor,
   Moon,
   Palette,
-  SignOut,
   Sun,
 } from "@phosphor-icons/react";
 import {
@@ -23,7 +20,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -37,15 +33,8 @@ const THEME_OPTIONS = [
 ] as const;
 
 export function NavFooter() {
-  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { isMobile } = useSidebar();
-
-  async function handleLogout() {
-    await fetch("/api/auth", { method: "DELETE" });
-    router.push("/login");
-    router.refresh();
-  }
 
   return (
     <SidebarMenu>
@@ -55,15 +44,10 @@ export function NavFooter() {
             <SidebarMenuButton
               size="lg"
               className="data-[state=open]:bg-sidebar-accent"
-              tooltip="Account"
+              tooltip="Settings"
             >
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">Admin</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  admin@itsyship.local
-                </span>
-              </div>
-              <CaretUpDown size={16} className="ml-auto text-muted-foreground" />
+              <GearSix size={16} />
+              <span className="truncate font-medium">Settings</span>
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -98,11 +82,6 @@ export function NavFooter() {
                 ))}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-              <SignOut size={14} className="mr-2" />
-              Sign out
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

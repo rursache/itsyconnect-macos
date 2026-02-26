@@ -9,10 +9,6 @@ const envSchema = z.object({
     .length(64, "ENCRYPTION_MASTER_KEY must be exactly 64 hex characters (32 bytes)")
     .regex(/^[0-9a-f]+$/i, "ENCRYPTION_MASTER_KEY must be a hex string"),
 
-  SESSION_SECRET: z
-    .string()
-    .min(32, "SESSION_SECRET must be at least 32 characters"),
-
   DATABASE_PATH: z.string().optional(),
 
   PORT: z.coerce
@@ -41,13 +37,6 @@ function autoGenerateKeys(): boolean {
     needsWrite = true;
   }
 
-  if (!process.env.SESSION_SECRET && !content.includes("SESSION_SECRET=")) {
-    const secret = randomBytes(32).toString("hex");
-    content += `\nSESSION_SECRET=${secret}`;
-    process.env.SESSION_SECRET = secret;
-    needsWrite = true;
-  }
-
   if (needsWrite) {
     fs.writeFileSync(envLocalPath, content.trim() + "\n", "utf-8");
   }
@@ -56,8 +45,7 @@ function autoGenerateKeys(): boolean {
 }
 
 function parseEnv(): Env {
-  // Auto-generate required keys on first run
-  if (!process.env.ENCRYPTION_MASTER_KEY || !process.env.SESSION_SECRET) {
+  if (!process.env.ENCRYPTION_MASTER_KEY) {
     autoGenerateKeys();
   }
 

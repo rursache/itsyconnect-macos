@@ -13,6 +13,7 @@ CREATE TABLE `asc_credentials` (
 	`id` text PRIMARY KEY NOT NULL,
 	`issuer_id` text NOT NULL,
 	`key_id` text NOT NULL,
+	`vendor_id` text,
 	`encrypted_private_key` text NOT NULL,
 	`iv` text NOT NULL,
 	`auth_tag` text NOT NULL,
@@ -27,15 +28,3 @@ CREATE TABLE `cache_entries` (
 	`fetched_at` integer NOT NULL,
 	`ttl_ms` integer NOT NULL
 );
---> statement-breakpoint
-CREATE TABLE `users` (
-	`id` text PRIMARY KEY NOT NULL,
-	`name` text NOT NULL,
-	`email` text NOT NULL,
-	`password_hash` text NOT NULL,
-	`role` text DEFAULT 'member' NOT NULL,
-	`created_at` text NOT NULL,
-	`updated_at` text NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);

@@ -12,9 +12,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AppStoreLogoIcon,
   CheckCircle,
   Eye,
   EyeSlash,
+  Info,
   Lock,
   Sailboat,
   SpinnerGap,
@@ -22,6 +24,7 @@ import {
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { AI_PROVIDERS } from "@/lib/ai-providers";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const TOTAL_STEPS = 3;
 
@@ -36,7 +39,7 @@ export default function SetupPage() {
       .then((res) => res.json())
       .then((data) => {
         if (!data.setup) {
-          router.replace("/login");
+          router.replace("/dashboard");
         } else {
           setReady(true);
         }
@@ -44,15 +47,10 @@ export default function SetupPage() {
       .catch(() => setReady(true));
   }, [router]);
 
-  // Step 1 – account
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
   // Step 2 – ASC credentials
   const [issuerId, setIssuerId] = useState("");
   const [keyId, setKeyId] = useState("");
+  const [vendorId, setVendorId] = useState("");
   const [keyIdFromFile, setKeyIdFromFile] = useState(false);
   const [privateKey, setPrivateKey] = useState("");
   const [keyError, setKeyError] = useState("");
@@ -153,14 +151,7 @@ export default function SetupPage() {
   }
 
   function canAdvance(): boolean {
-    if (step === 1) {
-      return (
-        name.trim().length > 0 &&
-        email.trim().length > 0 &&
-        password.length >= 8 &&
-        password === confirmPassword
-      );
-    }
+    if (step === 1) return true; // Welcome splash – always can advance
     if (step === 2) {
       return (
         issuerId.trim().length > 0 &&
@@ -175,17 +166,16 @@ export default function SetupPage() {
     setSubmitting(true);
 
     try {
-      const body: Record<string, string> = {
-        name: name.trim(),
-        email: email.trim(),
-        password,
-      };
+      const body: Record<string, string> = {};
 
-      // Include ASC credentials if provided
+      // Include ASC credentials
       if (issuerId.trim() && keyId.trim() && privateKey.trim()) {
         body.issuerId = issuerId.trim();
         body.keyId = keyId.trim();
         body.privateKey = privateKey;
+        if (vendorId.trim()) {
+          body.vendorId = vendorId.trim();
+        }
       }
 
       // Include AI settings if provided
@@ -233,35 +223,28 @@ export default function SetupPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      <div className="fixed top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md space-y-8">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Sailboat size={24} weight="fill" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            {step === 2 ? (
+              <AppStoreLogoIcon size={32} weight="fill" />
+            ) : (
+              <Sailboat size={32} weight="fill" />
+            )}
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
-            {step === 1 && "Create your account"}
+            {step === 1 && "Welcome to Itsyship"}
             {step === 2 && "Set up App Store Connect"}
             {step === 3 && "Set up AI"}
           </h1>
           <p className="text-sm text-muted-foreground text-center">
-            {step === 1 && "This will be your admin account."}
-            {step === 2 && (
-              <>
-                Generate a key in{" "}
-                <a
-                  href="https://appstoreconnect.apple.com/access/integrations/api"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  App Store Connect &rarr; Integrations &rarr; API
-                </a>
-                , then upload the .p8 file below.
-              </>
-            )}
+            {step === 1 && "Let\u2019s get you set up."}
             {step === 3 &&
-              "Optional \u2013 enable AI-powered translations and copywriting."}
+              "Add an API key to auto-translate app metadata and generate release notes, keywords, and descriptions."}
           </p>
         </div>
 
@@ -281,63 +264,67 @@ export default function SetupPage() {
           ))}
         </div>
 
-        {/* Step 1 – account */}
+        {/* Step 1 – welcome */}
         {step === 1 && (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">Name</label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Jane Appleseed"
-                className="text-sm"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">Email</label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="font-mono text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">Password</label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                className="text-sm"
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">
-                Confirm password
-              </label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="text-sm"
-                autoComplete="new-password"
-              />
-              {confirmPassword && password !== confirmPassword && (
-                <p className="text-xs text-destructive">
-                  Passwords do not match
-                </p>
-              )}
-            </div>
+            <ul className="space-y-3 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <CheckCircle size={16} weight="fill" className="mt-0.5 shrink-0 text-primary" />
+                Manage apps, versions, and metadata across all platforms
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={16} weight="fill" className="mt-0.5 shrink-0 text-primary" />
+                TestFlight builds, beta groups, and testers in one place
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle size={16} weight="fill" className="mt-0.5 shrink-0 text-primary" />
+                AI-powered translations and copywriting (optional)
+              </li>
+              <li className="flex items-start gap-2">
+                <Lock size={16} weight="fill" className="mt-0.5 shrink-0 text-primary" />
+                All data stays on your machine, encrypted at rest
+              </li>
+            </ul>
           </div>
         )}
 
         {/* Step 2 – ASC credentials */}
         {step === 2 && (
           <div className="space-y-4">
+            {/* Instructions */}
+            <div className="space-y-2 rounded-lg bg-muted/50 px-3 py-2.5">
+              <div className="flex items-start gap-2">
+                <Info size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <div className="space-y-1.5 text-xs text-muted-foreground">
+                  <p>
+                    Go to{" "}
+                    <a
+                      href="https://appstoreconnect.apple.com/access/integrations/api"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      App Store Connect &rarr; Integrations &rarr; Team keys
+                    </a>
+                    {" "}and generate a key with <strong>Admin</strong> access.
+                    Download the .p8 file and copy the Issuer ID shown on the page.
+                  </p>
+                  <p>
+                    For <strong>Vendor ID</strong>, go to{" "}
+                    <a
+                      href="https://appstoreconnect.apple.com/itc/payments_and_financial_reports"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Payments and financial reports
+                    </a>
+                    {" "}&ndash; it&rsquo;s the number shown in the top-left corner.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm text-muted-foreground">Issuer ID</label>
               <Input
@@ -383,6 +370,14 @@ export default function SetupPage() {
                     <p className="flex items-center gap-1.5 text-xs text-destructive">
                       <XCircle size={14} weight="fill" />
                       {testError || "Connection failed – check your credentials."}
+                      {" "}
+                      <button
+                        type="button"
+                        className="underline underline-offset-2 hover:text-destructive/80"
+                        onClick={() => testConnection(issuerId.trim(), keyId.trim(), privateKey)}
+                      >
+                        Test again
+                      </button>
                     </p>
                   )}
                   {testStatus === "idle" && !keyIdFromFile && (
@@ -405,13 +400,22 @@ export default function SetupPage() {
                 />
               </div>
             )}
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2.5">
-              <Lock size={14} className="shrink-0 text-muted-foreground" />
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">
+                Vendor ID{" "}
+                <span className="text-xs text-muted-foreground/60">(optional)</span>
+              </label>
+              <Input
+                value={vendorId}
+                onChange={(e) => setVendorId(e.target.value)}
+                placeholder="XXXXXXXX"
+                className="font-mono text-sm"
+              />
               <p className="text-xs text-muted-foreground">
-                Your private key is encrypted at rest with AES-256-GCM and
-                never leaves the server.
+                Required for sales and financial reports. You can add it later in settings.
               </p>
             </div>
+
           </div>
         )}
 
@@ -475,7 +479,7 @@ export default function SetupPage() {
         )}
 
         {/* Navigation */}
-        <div className="flex items-center justify-between">
+        <div className={`flex items-center ${step === 1 ? "justify-center" : "justify-between"}`}>
           {step > 1 ? (
             <Button
               variant="ghost"
@@ -485,7 +489,7 @@ export default function SetupPage() {
               Back
             </Button>
           ) : (
-            <div />
+            step !== 1 && <div />
           )}
           <div className="flex items-center gap-2">
             {step === 3 && !apiKey && (
@@ -508,6 +512,8 @@ export default function SetupPage() {
                 </>
               ) : step === TOTAL_STEPS ? (
                 "Finish"
+              ) : step === 1 ? (
+                "Get started"
               ) : (
                 "Continue"
               )}

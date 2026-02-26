@@ -1,23 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
-import { users, ascCredentials, aiSettings } from "@/db/schema";
-import { sql } from "drizzle-orm";
-import { hashPassword, sessionOptions, type SessionData } from "@/lib/auth";
+import { ascCredentials, aiSettings } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { encrypt } from "@/lib/encryption";
 import { ulid } from "@/lib/ulid";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
 
 const setupSchema = z.object({
-  name: z.string().min(1, "Name is required").trim(),
-  email: z.string().email("Invalid email").trim().toLowerCase(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-
-  // ASC credentials – optional
-  issuerId: z.string().trim().optional(),
-  keyId: z.string().trim().optional(),
-  privateKey: z.string().optional(),
+  // ASC credentials – required
+  issuerId: z.string().min(1, "Issuer ID is required").trim(),
+  keyId: z.string().min(1, "Key ID is required").trim(),
+  privateKey: z.string().min(1, "Private key is required"),
+  vendorId: z.string().trim().optional(),
 
   // AI settings – optional
   aiProvider: z.string().optional(),
@@ -26,13 +20,14 @@ const setupSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  // Check no users exist
-  const count = db
-    .select({ count: sql<number>`count(*)` })
-    .from(users)
+  // Check no active credentials exist (setup already done)
+  const existing = db
+    .select({ id: ascCredentials.id })
+    .from(ascCredentials)
+    .where(eq(ascCredentials.isActive, true))
     .get();
 
-  if (count && count.count > 0) {
+  if (existing) {
     return NextResponse.json(
       { error: "Setup already completed" },
       { status: 403 },
@@ -64,59 +59,36 @@ export async function POST(request: Request) {
 
   const data = parsed.data;
 
-  // Hash password
-  const passwordHash = await hashPassword(data.password);
-
-  // Create admin user
-  const userId = ulid();
-  db.insert(users)
+  // Store ASC credentials
+  const encrypted = encrypt(data.privateKey);
+  db.insert(ascCredentials)
     .values({
-      id: userId,
-      name: data.name,
-      email: data.email,
-      passwordHash,
-      role: "admin",
+      id: ulid(),
+      issuerId: data.issuerId,
+      keyId: data.keyId,
+      vendorId: data.vendorId || null,
+      encryptedPrivateKey: encrypted.ciphertext,
+      iv: encrypted.iv,
+      authTag: encrypted.authTag,
+      encryptedDek: encrypted.encryptedDek,
     })
     .run();
 
-  // Store ASC credentials if provided
-  if (data.issuerId && data.keyId && data.privateKey) {
-    const encrypted = encrypt(data.privateKey);
-    db.insert(ascCredentials)
-      .values({
-        id: ulid(),
-        issuerId: data.issuerId,
-        keyId: data.keyId,
-        encryptedPrivateKey: encrypted.ciphertext,
-        iv: encrypted.iv,
-        authTag: encrypted.authTag,
-        encryptedDek: encrypted.encryptedDek,
-      })
-      .run();
-  }
-
   // Store AI settings if provided
   if (data.aiProvider && data.aiModelId && data.aiApiKey) {
-    const encrypted = encrypt(data.aiApiKey);
+    const aiEncrypted = encrypt(data.aiApiKey);
     db.insert(aiSettings)
       .values({
         id: ulid(),
         provider: data.aiProvider,
         modelId: data.aiModelId,
-        encryptedApiKey: encrypted.ciphertext,
-        iv: encrypted.iv,
-        authTag: encrypted.authTag,
-        encryptedDek: encrypted.encryptedDek,
+        encryptedApiKey: aiEncrypted.ciphertext,
+        iv: aiEncrypted.iv,
+        authTag: aiEncrypted.authTag,
+        encryptedDek: aiEncrypted.encryptedDek,
       })
       .run();
   }
-
-  // Create session (auto-login)
-  const cookieStore = await cookies();
-  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
-  session.userId = userId;
-  session.role = "admin";
-  await session.save();
 
   return NextResponse.json({ ok: true });
 }

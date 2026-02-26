@@ -2,26 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
 import { aiSettings } from "@/db/schema";
-import { sessionOptions, type SessionData } from "@/lib/auth";
 import { encrypt } from "@/lib/encryption";
 import { ulid } from "@/lib/ulid";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
 import { sql } from "drizzle-orm";
 
-async function requireAuth() {
-  const cookieStore = await cookies();
-  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
-  if (!session.userId) return null;
-  return session;
-}
-
 export async function GET() {
-  const session = await requireAuth();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const settings = db
     .select({
       id: aiSettings.id,
@@ -47,11 +32,6 @@ const updateSchema = z.object({
 });
 
 export async function PUT(request: Request) {
-  const session = await requireAuth();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });

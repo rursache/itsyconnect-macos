@@ -16,6 +16,7 @@ interface Credential {
   id: string;
   issuerId: string;
   keyId: string;
+  vendorId: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -95,6 +96,13 @@ export default function SettingsPage() {
           </section>
 
           <section className="space-y-2">
+            <h3 className="section-title">Vendor ID</h3>
+            <p className="text-sm font-mono">
+              {credential.vendorId || <span className="text-muted-foreground font-sans">Not set</span>}
+            </p>
+          </section>
+
+          <section className="space-y-2">
             <h3 className="section-title">Private key</h3>
             <p className="text-sm text-muted-foreground">
               Stored encrypted on the server
@@ -157,6 +165,7 @@ function CredentialForm({
 }) {
   const [issuerId, setIssuerId] = useState("");
   const [keyId, setKeyId] = useState("");
+  const [vendorId, setVendorId] = useState("");
   const [keyIdFromFile, setKeyIdFromFile] = useState(false);
   const [privateKey, setPrivateKey] = useState("");
   const [keyError, setKeyError] = useState("");
@@ -206,7 +215,7 @@ function CredentialForm({
       const res = await fetch("/api/settings/credentials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issuerId, keyId, privateKey }),
+        body: JSON.stringify({ issuerId, keyId, vendorId: vendorId.trim() || undefined, privateKey }),
       });
 
       if (res.ok) {
@@ -303,6 +312,22 @@ function CredentialForm({
           />
         </section>
       )}
+
+      <section className="space-y-2">
+        <h3 className="section-title">
+          Vendor ID{" "}
+          <span className="text-xs font-normal text-muted-foreground/60">(optional)</span>
+        </h3>
+        <Input
+          value={vendorId}
+          onChange={(e) => setVendorId(e.target.value)}
+          placeholder="XXXXXXXX"
+          className="max-w-md font-mono text-sm"
+        />
+        <p className="text-xs text-muted-foreground">
+          Required for sales and financial reports.
+        </p>
+      </section>
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={saving || !canSave}>

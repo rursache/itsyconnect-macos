@@ -3,30 +3,16 @@ import { z } from "zod";
 import { db } from "@/db";
 import { ascCredentials } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { sessionOptions, type SessionData } from "@/lib/auth";
 import { encrypt } from "@/lib/encryption";
 import { ulid } from "@/lib/ulid";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-
-async function requireAuth() {
-  const cookieStore = await cookies();
-  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
-  if (!session.userId) return null;
-  return session;
-}
 
 export async function GET() {
-  const session = await requireAuth();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const cred = db
     .select({
       id: ascCredentials.id,
       issuerId: ascCredentials.issuerId,
       keyId: ascCredentials.keyId,
+      vendorId: ascCredentials.vendorId,
       isActive: ascCredentials.isActive,
       createdAt: ascCredentials.createdAt,
     })
@@ -40,15 +26,11 @@ export async function GET() {
 const createSchema = z.object({
   issuerId: z.string().min(1).trim(),
   keyId: z.string().min(1).trim(),
+  vendorId: z.string().trim().optional(),
   privateKey: z.string().min(1),
 });
 
 export async function POST(request: Request) {
-  const session = await requireAuth();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
@@ -62,7 +44,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { issuerId, keyId, privateKey } = parsed.data;
+  const { issuerId, keyId, vendorId, privateKey } = parsed.data;
 
   // Deactivate existing credentials
   db.update(ascCredentials)
@@ -77,6 +59,7 @@ export async function POST(request: Request) {
       id: ulid(),
       issuerId,
       keyId,
+      vendorId: vendorId || null,
       encryptedPrivateKey: encrypted.ciphertext,
       iv: encrypted.iv,
       authTag: encrypted.authTag,
@@ -88,11 +71,6 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const session = await requireAuth();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 

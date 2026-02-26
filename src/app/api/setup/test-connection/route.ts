@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { sql } from "drizzle-orm";
+import { ascCredentials } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { generateAscJwt } from "@/lib/asc/jwt";
 
 const testSchema = z.object({
@@ -12,13 +12,14 @@ const testSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  // Only available during setup
-  const count = db
-    .select({ count: sql<number>`count(*)` })
-    .from(users)
+  // Only available during setup (no active credentials yet)
+  const existing = db
+    .select({ id: ascCredentials.id })
+    .from(ascCredentials)
+    .where(eq(ascCredentials.isActive, true))
     .get();
 
-  if (count && count.count > 0) {
+  if (existing) {
     return NextResponse.json(
       { error: "Setup already completed" },
       { status: 403 },

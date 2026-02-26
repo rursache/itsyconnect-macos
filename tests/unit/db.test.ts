@@ -16,20 +16,11 @@ function createTestDb() {
 
 function migrateTestDb(sqlite: InstanceType<typeof Database>) {
   sqlite.exec(`
-    CREATE TABLE users (
-      id TEXT PRIMARY KEY NOT NULL,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'member',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
     CREATE TABLE asc_credentials (
       id TEXT PRIMARY KEY NOT NULL,
       issuer_id TEXT NOT NULL,
       key_id TEXT NOT NULL,
+      vendor_id TEXT,
       encrypted_private_key TEXT NOT NULL,
       iv TEXT NOT NULL,
       auth_tag TEXT NOT NULL,
@@ -91,68 +82,6 @@ describe("database schema", () => {
     db = test.db;
     sqlite = test.sqlite;
     migrateTestDb(sqlite);
-  });
-
-  describe("users", () => {
-    it("inserts and queries a user", () => {
-      const id = ulid();
-      const now = new Date().toISOString();
-
-      db.insert(schema.users).values({
-        id,
-        name: "Jane Appleseed",
-        email: "jane@example.com",
-        passwordHash: "$2b$10$fakehash",
-        role: "admin",
-        createdAt: now,
-        updatedAt: now,
-      }).run();
-
-      const rows = db.select().from(schema.users).all();
-      expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({
-        id,
-        name: "Jane Appleseed",
-        email: "jane@example.com",
-        role: "admin",
-      });
-    });
-
-    it("enforces unique email", () => {
-      const now = new Date().toISOString();
-      const values = {
-        name: "Jane",
-        email: "jane@example.com",
-        passwordHash: "$2b$10$fakehash",
-        role: "admin" as const,
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      db.insert(schema.users).values({ id: ulid(), ...values }).run();
-
-      expect(() => {
-        db.insert(schema.users).values({ id: ulid(), ...values }).run();
-      }).toThrow(/UNIQUE/);
-    });
-
-    it("defaults role to member", () => {
-      const id = ulid();
-      const now = new Date().toISOString();
-
-      // Insert directly with SQL to skip Drizzle defaults and test DB default
-      sqlite.prepare(
-        `INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      ).run(id, "Bob", "bob@example.com", "$2b$10$hash", now, now);
-
-      const rows = db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, id))
-        .all();
-      expect(rows[0].role).toBe("member");
-    });
   });
 
   describe("ascCredentials", () => {

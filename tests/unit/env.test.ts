@@ -1,7 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-
-// We test the Zod schema directly rather than importing env.ts
-// (which parses eagerly at import time)
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 
 const envSchema = z.object({
@@ -9,10 +6,6 @@ const envSchema = z.object({
     .string()
     .length(64, "ENCRYPTION_MASTER_KEY must be exactly 64 hex characters (32 bytes)")
     .regex(/^[0-9a-f]+$/i, "ENCRYPTION_MASTER_KEY must be a hex string"),
-
-  SESSION_SECRET: z
-    .string()
-    .min(32, "SESSION_SECRET must be at least 32 characters"),
 
   DATABASE_PATH: z.string().optional(),
 
@@ -26,7 +19,6 @@ const envSchema = z.object({
 
 const validEnv = {
   ENCRYPTION_MASTER_KEY: "9fce91a7ca8c37d1f9e0280d897274519bfc81d9ef8876707bc2ff0727680462",
-  SESSION_SECRET: "f55da1c41d89368a5dd3777d337f4a59c64d27d4b7e5b5251acc72862c82f057",
 };
 
 describe("env validation", () => {
@@ -35,7 +27,6 @@ describe("env validation", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.ENCRYPTION_MASTER_KEY).toBe(validEnv.ENCRYPTION_MASTER_KEY);
-      expect(result.data.SESSION_SECRET).toBe(validEnv.SESSION_SECRET);
       expect(result.data.PORT).toBe(3000);
     }
   });
@@ -54,16 +45,7 @@ describe("env validation", () => {
   });
 
   it("rejects missing ENCRYPTION_MASTER_KEY", () => {
-    const result = envSchema.safeParse({
-      SESSION_SECRET: validEnv.SESSION_SECRET,
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects missing SESSION_SECRET", () => {
-    const result = envSchema.safeParse({
-      ENCRYPTION_MASTER_KEY: validEnv.ENCRYPTION_MASTER_KEY,
-    });
+    const result = envSchema.safeParse({});
     expect(result.success).toBe(false);
   });
 
@@ -79,14 +61,6 @@ describe("env validation", () => {
     const result = envSchema.safeParse({
       ...validEnv,
       ENCRYPTION_MASTER_KEY: "zzzz91a7ca8c37d1f9e0280d897274519bfc81d9ef8876707bc2ff0727680462",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects SESSION_SECRET shorter than 32 chars", () => {
-    const result = envSchema.safeParse({
-      ...validEnv,
-      SESSION_SECRET: "too-short",
     });
     expect(result.success).toBe(false);
   });

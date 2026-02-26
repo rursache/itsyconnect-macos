@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { sessionOptions, type SessionData } from "@/lib/auth";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
 import { cacheInvalidate, cacheInvalidatePrefix } from "@/lib/cache";
 import { listApps } from "@/lib/asc/apps";
 import { hasCredentials } from "@/lib/asc/client";
@@ -12,13 +9,6 @@ const refreshSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
-
-  if (!session.userId) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   if (!hasCredentials()) {
     return NextResponse.json(
       { error: "No ASC credentials configured" },

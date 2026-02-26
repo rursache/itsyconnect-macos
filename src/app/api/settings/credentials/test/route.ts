@@ -3,23 +3,14 @@ import { z } from "zod";
 import { db } from "@/db";
 import { ascCredentials } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { sessionOptions, type SessionData } from "@/lib/auth";
 import { decrypt } from "@/lib/encryption";
 import { generateAscJwt } from "@/lib/asc/jwt";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
 
 const testSchema = z.object({
   id: z.string().min(1),
 });
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
-  if (!session.userId) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });

@@ -1,28 +1,13 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { ulid } from "@/lib/ulid";
 
-// --- Users ---
-
-export const users = sqliteTable("users", {
-  id: text("id").primaryKey().$defaultFn(ulid),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
-  role: text("role", { enum: ["admin", "member"] }).notNull().default("member"),
-  createdAt: text("created_at")
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  updatedAt: text("updated_at")
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-});
-
 // --- ASC credentials ---
 
 export const ascCredentials = sqliteTable("asc_credentials", {
   id: text("id").primaryKey().$defaultFn(ulid),
   issuerId: text("issuer_id").notNull(),
   keyId: text("key_id").notNull(),
+  vendorId: text("vendor_id"),
   encryptedPrivateKey: text("encrypted_private_key").notNull(),
   iv: text("iv").notNull(),
   authTag: text("auth_tag").notNull(),
