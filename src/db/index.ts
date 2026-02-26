@@ -5,9 +5,7 @@ import * as schema from "./schema";
 import path from "node:path";
 import fs from "node:fs";
 
-const dbPath =
-  process.env.DATABASE_PATH ??
-  path.join(process.cwd(), "data", "itsyship.db");
+const dbPath = process.env.DATABASE_PATH!;
 const dbDir = path.dirname(dbPath);
 
 if (!fs.existsSync(dbDir)) {

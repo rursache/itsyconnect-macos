@@ -1,7 +1,4 @@
 import { z } from "zod";
-import { randomBytes } from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 
 const envSchema = z.object({
   ENCRYPTION_MASTER_KEY: z
@@ -21,34 +18,7 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
-function autoGenerateKeys(): boolean {
-  const envLocalPath = path.join(process.cwd(), ".env.local");
-  let content = "";
-  let needsWrite = false;
-
-  if (fs.existsSync(envLocalPath)) {
-    content = fs.readFileSync(envLocalPath, "utf-8");
-  }
-
-  if (!process.env.ENCRYPTION_MASTER_KEY && !content.includes("ENCRYPTION_MASTER_KEY=")) {
-    const key = randomBytes(32).toString("hex");
-    content += `\nENCRYPTION_MASTER_KEY=${key}`;
-    process.env.ENCRYPTION_MASTER_KEY = key;
-    needsWrite = true;
-  }
-
-  if (needsWrite) {
-    fs.writeFileSync(envLocalPath, content.trim() + "\n", "utf-8");
-  }
-
-  return needsWrite;
-}
-
 function parseEnv(): Env {
-  if (!process.env.ENCRYPTION_MASTER_KEY) {
-    autoGenerateKeys();
-  }
-
   const result = envSchema.safeParse(process.env);
 
   if (!result.success) {

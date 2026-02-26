@@ -1,0 +1,38 @@
+import type { ForgeConfig } from "@electron-forge/shared-types";
+import { MakerDMG } from "@electron-forge/maker-dmg";
+import { MakerPKG } from "@electron-forge/maker-pkg";
+
+const config: ForgeConfig = {
+  packagerConfig: {
+    appBundleId: "com.itsyship.app",
+    name: "Itsyship",
+    icon: "public/icon",
+    asar: false,
+    osxSign: process.env.APPLE_TEAM_ID ? {} : undefined,
+    osxNotarize: process.env.APPLE_ID
+      ? {
+          appleId: process.env.APPLE_ID,
+          appleIdPassword: process.env.APPLE_ID_PASSWORD!,
+          teamId: process.env.APPLE_TEAM_ID!,
+        }
+      : undefined,
+    ignore: (filePath: string) => {
+      if (!filePath) return false;
+      if (filePath === "/package.json") return false;
+      if (filePath.startsWith("/electron")) return false;
+      if (filePath.startsWith("/.next/standalone")) return false;
+      if (filePath.startsWith("/drizzle")) return false;
+      return true;
+    },
+  },
+  makers: [
+    new MakerDMG({
+      format: "ULFO",
+    }),
+    new MakerPKG({
+      isVersionChecked: false,
+    }),
+  ],
+};
+
+export default config;

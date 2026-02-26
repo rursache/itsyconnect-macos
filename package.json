@@ -2,17 +2,20 @@
   "name": "itsyship-com",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "electron:compile": "tsc -p electron/tsconfig.json",
+    "electron:prepare": "cp -r public .next/standalone/public && cp -r .next/static .next/standalone/.next/static && cp -r drizzle .next/standalone/drizzle",
+    "electron:dev": "npm run electron:compile && electron .",
+    "electron:make:dmg": "npm run electron:compile && next build && npm run electron:prepare && electron-forge make --targets=@electron-forge/maker-dmg",
+    "electron:make:mas": "npm run electron:compile && next build && npm run electron:prepare && electron-forge make --targets=@electron-forge/maker-pkg --platform=mas"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -36,6 +39,9 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@electron-forge/cli": "^7.11.1",
+    "@electron-forge/maker-dmg": "^7.11.1",
+    "@electron-forge/maker-pkg": "^7.11.1",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@types/better-sqlite3": "^7.6.13",
@@ -45,6 +51,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "^4.0.18",
     "drizzle-kit": "^0.31.9",
+    "electron": "^40.6.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "playwright": "^1.58.2",

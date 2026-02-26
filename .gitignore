@@ -15,7 +15,6 @@
 
 # next.js
 /.next/
-/out/
 
 # production
 /build
@@ -23,9 +22,6 @@
 # misc
 .DS_Store
 *.pem
-
-# database
-/data/
 
 # script output
 /scripts/output/
@@ -36,13 +32,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*
-!.env.example
-
-# vercel
-.vercel
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# electron
+/out/
+electron/*.js
+electron/*.js.map
