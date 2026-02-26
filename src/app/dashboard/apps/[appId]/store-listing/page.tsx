@@ -321,7 +321,7 @@ export default function StoreListingPage() {
                     onChange={(e) => updateField("description", e.target.value)}
                     readOnly={readOnly}
                     placeholder="Describe your app..."
-                    className="border-0 p-0 shadow-none focus-visible:ring-0 resize-none font-mono text-sm min-h-0"
+                    className="border-0 p-0 shadow-none focus-visible:ring-0 resize-none font-mono text-xs md:text-xs min-h-0"
                   />
                 </CardContent>
                 <div className="flex items-center justify-end border-t px-3 py-1.5">
@@ -343,7 +343,7 @@ export default function StoreListingPage() {
                     onChange={(e) => updateField("keywords", e.target.value)}
                     readOnly={readOnly}
                     placeholder="keyword1,keyword2,keyword3"
-                    className="border-0 p-0 shadow-none focus-visible:ring-0 font-mono text-sm h-auto"
+                    className="border-0 p-0 shadow-none focus-visible:ring-0 font-mono text-xs md:text-xs h-auto"
                   />
                 </CardContent>
                 <div className="flex items-center justify-end border-t px-3 py-1.5">
@@ -365,7 +365,7 @@ export default function StoreListingPage() {
                     onChange={(e) => updateField("whatsNew", e.target.value)}
                     readOnly={readOnly}
                     placeholder="Describe what's new in this version..."
-                    className="border-0 p-0 shadow-none focus-visible:ring-0 resize-none font-mono text-sm min-h-0"
+                    className="border-0 p-0 shadow-none focus-visible:ring-0 resize-none font-mono text-xs md:text-xs min-h-0"
                   />
                 </CardContent>
                 <div className="flex items-center justify-end border-t px-3 py-1.5">
@@ -389,7 +389,7 @@ export default function StoreListingPage() {
                     }
                     readOnly={readOnly}
                     placeholder="Inform App Store visitors of current features..."
-                    className="border-0 p-0 shadow-none focus-visible:ring-0 resize-none font-mono text-sm min-h-0"
+                    className="border-0 p-0 shadow-none focus-visible:ring-0 resize-none font-mono text-xs md:text-xs min-h-0"
                   />
                 </CardContent>
                 <div className="flex items-center justify-end border-t px-3 py-1.5">
@@ -408,7 +408,7 @@ export default function StoreListingPage() {
         <BuildSection version={selectedVersion} />
 
         {/* Release settings */}
-        <section className="space-y-6 pb-8">
+        <section className="space-y-6">
           <h3 className="section-title">Release settings</h3>
 
           <div className="space-y-3">
