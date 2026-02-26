@@ -77,20 +77,7 @@ export function HeaderVersionPicker() {
 
   if (!NEW_VERSION_PAGES.has(pageSegment) && !SAVE_ONLY_PAGES.has(pageSegment)) return null;
 
-  if (SAVE_ONLY_PAGES.has(pageSegment)) {
-    return (
-      <div className="ml-auto flex items-center gap-2">
-        <Button
-          size="sm"
-          className="h-7 gap-1 text-xs"
-          onClick={() => toast.success("Changes saved (prototype)")}
-        >
-          <FloppyDisk size={12} />
-          Save
-        </Button>
-      </div>
-    );
-  }
+  if (SAVE_ONLY_PAGES.has(pageSegment)) return null;
 
   const showVersionPicker = VERSION_PAGES.has(pageSegment);
   const platforms = getVersionPlatforms(versions);
@@ -98,9 +85,6 @@ export function HeaderVersionPicker() {
   const selectedVersion = resolveVersion(versions, versionParam);
   const currentPlatform = selectedVersion?.attributes.platform ?? platforms[0] ?? "IOS";
   const platformVersions = getVersionsByPlatform(versions, currentPlatform);
-  const readOnly = selectedVersion
-    ? !EDITABLE_STATES.has(selectedVersion.attributes.appVersionState)
-    : true;
 
   function navigate(versionId: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -159,8 +143,37 @@ export function HeaderVersionPicker() {
           )}
         </>
       )}
+    </>
+  );
+}
 
-      <div className="ml-auto flex items-center gap-2">
+export function HeaderVersionActions() {
+  const { appId } = useParams<{ appId?: string }>();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { versions } = useVersions();
+
+  if (!appId) return null;
+
+  const pageSegment = pathname
+    .replace(`/dashboard/apps/${appId}`, "")
+    .replace(/^\//, "")
+    .split("/")[0];
+
+  const showSave = SAVE_ONLY_PAGES.has(pageSegment);
+  const showVersionActions = VERSION_PAGES.has(pageSegment);
+  const showNewVersion = NEW_VERSION_PAGES.has(pageSegment);
+
+  if (!showSave && !showVersionActions && !showNewVersion) return null;
+
+  const selectedVersion = resolveVersion(versions, searchParams.get("version"));
+  const readOnly = selectedVersion
+    ? !EDITABLE_STATES.has(selectedVersion.attributes.appVersionState)
+    : true;
+
+  return (
+    <>
+      {showNewVersion && (
         <Button
           variant="outline"
           size="sm"
@@ -172,17 +185,17 @@ export function HeaderVersionPicker() {
           <Plus size={12} />
           New version
         </Button>
-        {showVersionPicker && !readOnly && (
-          <Button
-            size="sm"
-            className="h-7 gap-1 text-xs"
-            onClick={() => toast.success("Changes saved (prototype)")}
-          >
-            <FloppyDisk size={12} />
-            Save
-          </Button>
-        )}
-      </div>
+      )}
+      {(showSave || (showVersionActions && !readOnly)) && (
+        <Button
+          size="sm"
+          className="h-7 gap-1 text-xs"
+          onClick={() => toast.success("Changes saved (prototype)")}
+        >
+          <FloppyDisk size={12} />
+          Save
+        </Button>
+      )}
     </>
   );
 }

@@ -4,7 +4,7 @@ import { Suspense, useEffect } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { DashboardBreadcrumb } from "@/components/layout/dashboard-breadcrumb";
-import { HeaderVersionPicker } from "@/components/layout/header-version-picker";
+import { HeaderVersionPicker, HeaderVersionActions } from "@/components/layout/header-version-picker";
 import { HeaderBuildsPicker } from "@/components/layout/header-builds-picker";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppsProvider, useApps } from "@/lib/apps-context";
@@ -44,13 +44,18 @@ export default function DashboardLayout({
         <SidebarInset className="h-screen overflow-hidden">
           <header className="drag flex h-16 shrink-0 items-center gap-2 border-b bg-background transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
             <div className="flex flex-1 items-center gap-2 px-4">
-              <div className="no-drag">
+              <div className="no-drag flex items-center gap-2">
                 <DashboardBreadcrumb />
+                <Suspense>
+                  <HeaderVersionPicker />
+                </Suspense>
               </div>
               <div className="no-drag ml-auto flex items-center gap-2">
                 <Suspense>
+                  <HeaderVersionActions />
+                </Suspense>
+                <Suspense>
                   <HeaderBuildsPicker />
-                  <HeaderVersionPicker />
                 </Suspense>
                 <ThemeToggle />
               </div>
