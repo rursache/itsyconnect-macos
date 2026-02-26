@@ -200,62 +200,46 @@ export default function VersionPage() {
             )}
           </section>
 
-          {/* App Store version release */}
-          <section className="space-y-4">
-            <h3 className="section-title">App Store version release</h3>
-            <p className="text-sm text-muted-foreground">
-              To release your app on the App Store, you can either have it
-              automatically released after it passes App Review, or you can
-              manually release it later on.
-            </p>
-            <Tabs
-              value={releaseType}
-              onValueChange={setReleaseType}
-              className="w-full max-w-md"
-            >
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="automatically">Automatically</TabsTrigger>
-                <TabsTrigger value="manually">Manually</TabsTrigger>
-                <TabsTrigger value="after-date">After date</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <div className="text-sm">
-              <p className="font-medium">
-                {releaseType === "automatically" && "Automatically"}
-                {releaseType === "manually" && "Manually"}
-                {releaseType === "after-date" && "After date"}
-              </p>
-              <p className="text-muted-foreground">
+          {/* Release settings */}
+          <section className="space-y-6 pb-8">
+            <h3 className="section-title">Release settings</h3>
+
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Release method</p>
+              <Tabs
+                value={releaseType}
+                onValueChange={setReleaseType}
+                className="w-full max-w-md"
+              >
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="automatically">Automatic</TabsTrigger>
+                  <TabsTrigger value="manually">Manual</TabsTrigger>
+                  <TabsTrigger value="after-date">Scheduled</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <p className="text-sm text-muted-foreground">
                 {releaseType === "automatically" &&
-                  "Your app will be released automatically once it has been approved by App Review."}
+                  "Goes live as soon as App Review approves it."}
                 {releaseType === "manually" &&
-                  "You'll have to press the release button yourself, gives you a bit more control."}
+                  "Stays on hold after approval – you decide when to release."}
                 {releaseType === "after-date" &&
-                  "Your app will be released on a date you specify, after it passes App Review."}
+                  "Released on a date you choose, after approval."}
               </p>
             </div>
-          </section>
 
-          {/* Phased release */}
-          <section className="space-y-4 pb-8">
-            <h3 className="section-title">Phased release</h3>
-            <p className="text-sm text-muted-foreground">
-              You can release automatic updates gradually over 7 days for App
-              Store users with automatic updates enabled.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">
-                Manual updates remain available immediately.
-              </strong>{" "}
-              You can pause the release for 30 days or release to all users
-              anytime.
-            </p>
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={phasedRelease}
-                onCheckedChange={setPhasedRelease}
-              />
-              <Label className="text-sm">Release over a 7-day period.</Label>
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Phased rollout</p>
+              <p className="text-sm text-muted-foreground">
+                Gradually roll out to users over 7 days. Only affects automatic
+                updates – manual downloads get the new version immediately.
+              </p>
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={phasedRelease}
+                  onCheckedChange={setPhasedRelease}
+                />
+                <Label className="text-sm">Enable 7-day phased rollout</Label>
+              </div>
             </div>
           </section>
         </div>
