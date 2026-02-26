@@ -1,29 +1,109 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
-  AppWindow,
-  Users,
-  PaperPlaneTilt,
-  Plus,
-} from "@phosphor-icons/react";
-import { toast } from "sonner";
-import { MOCK_APPS, MOCK_BUILDS, getAppVersions } from "@/lib/mock-data";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { MOCK_APPS } from "@/lib/mock-data";
+import {
+  getAppTFBuilds,
+  MOCK_BETA_GROUPS,
+  type MockTFBuild,
+} from "@/lib/mock-testflight";
 
 const PLATFORM_LABELS: Record<string, string> = {
   IOS: "iOS",
   MAC_OS: "macOS",
-  TV_OS: "tvOS",
-  VISION_OS: "visionOS",
 };
 
-export default function TestFlightPage() {
+const STATUS_DOTS: Record<MockTFBuild["status"], string> = {
+  Testing: "bg-green-500",
+  "Ready to submit": "bg-yellow-500",
+  Processing: "bg-blue-500",
+  Expired: "bg-red-500",
+};
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+export default function TestFlightBuildsPage() {
   const { appId } = useParams<{ appId: string }>();
+  const router = useRouter();
   const app = MOCK_APPS.find((a) => a.id === appId);
-  const versions = getAppVersions(appId);
+  const allBuilds = useMemo(() => getAppTFBuilds(appId), [appId]);
+
+  const platforms = useMemo(
+    () => [...new Set(allBuilds.map((b) => b.platform))],
+    [allBuilds],
+  );
+  const [platformFilter, setPlatformFilter] = useState("all");
+
+  // Derive versions for the selected platform
+  const versionsForPlatform = useMemo(() => {
+    const platformBuilds =
+      platformFilter === "all"
+        ? allBuilds
+        : allBuilds.filter((b) => b.platform === platformFilter);
+    return [...new Set(platformBuilds.map((b) => b.versionString))];
+  }, [allBuilds, platformFilter]);
+
+  const [versionFilter, setVersionFilter] = useState("all");
+
+  // Reset version filter when platform changes and version is no longer available
+  const effectiveVersion =
+    versionFilter !== "all" && versionsForPlatform.includes(versionFilter)
+      ? versionFilter
+      : "all";
+
+  const builds = useMemo(() => {
+    let filtered = allBuilds;
+    if (platformFilter !== "all") {
+      filtered = filtered.filter((b) => b.platform === platformFilter);
+    }
+    if (effectiveVersion !== "all") {
+      filtered = filtered.filter((b) => b.versionString === effectiveVersion);
+    }
+    return filtered;
+  }, [allBuilds, platformFilter, effectiveVersion]);
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = builds.length;
+    const dates = builds.map((b) => new Date(b.uploadedDate).getTime());
+    const firstDate = dates.length > 0 ? new Date(Math.min(...dates)) : null;
+    const latestDate = dates.length > 0 ? new Date(Math.max(...dates)) : null;
+
+    const now = Date.now();
+    const activeExpiries = builds
+      .filter((b) => b.status === "Testing" || b.status === "Ready to submit")
+      .map((b) => new Date(b.expiryDate).getTime())
+      .filter((t) => t > now);
+    const nearestExpiry =
+      activeExpiries.length > 0
+        ? Math.ceil((Math.min(...activeExpiries) - now) / (1000 * 60 * 60 * 24))
+        : null;
+
+    return { total, firstDate, latestDate, nearestExpiry };
+  }, [builds]);
 
   if (!app) {
     return (
@@ -33,100 +113,172 @@ export default function TestFlightPage() {
     );
   }
 
-  const builds = MOCK_BUILDS.filter((b) =>
-    versions.some((v) => v.id === b.versionId)
-  );
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">TestFlight</h1>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => toast.info("Not available in prototype")}
-        >
-          <Plus size={14} className="mr-1.5" />
-          New group
-        </Button>
+        <h1 className="text-2xl font-bold tracking-tight">Builds</h1>
+        <div className="flex items-center gap-2">
+          {platforms.length > 1 && (
+            <Select
+              value={platformFilter}
+              onValueChange={(v) => {
+                setPlatformFilter(v);
+                setVersionFilter("all");
+              }}
+            >
+              <SelectTrigger className="w-[140px] text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All platforms</SelectItem>
+                {platforms.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {PLATFORM_LABELS[p] ?? p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {versionsForPlatform.length > 1 && (
+            <Select value={effectiveVersion} onValueChange={setVersionFilter}>
+              <SelectTrigger className="w-[140px] text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All versions</SelectItem>
+                {versionsForPlatform.map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Builds</CardTitle>
-            <AppWindow size={16} className="text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{builds.length}</div>
-            <p className="text-xs text-muted-foreground">Available for testing</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Groups</CardTitle>
-            <Users size={16} className="text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">2</div>
-            <p className="text-xs text-muted-foreground">Internal, External</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Testers</CardTitle>
-            <PaperPlaneTilt size={16} className="text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">Active testers</p>
-          </CardContent>
-        </Card>
+      {/* Stats row */}
+      <div className="flex items-center gap-6 text-sm">
+        <div>
+          <p className="text-muted-foreground">Total builds</p>
+          <p className="font-medium tabular-nums">{stats.total}</p>
+        </div>
+        <div className="h-8 border-l" />
+        <div>
+          <p className="text-muted-foreground">First build</p>
+          <p className="font-medium tabular-nums">
+            {stats.firstDate ? formatDate(stats.firstDate.toISOString()) : "–"}
+          </p>
+        </div>
+        <div className="h-8 border-l" />
+        <div>
+          <p className="text-muted-foreground">Latest</p>
+          <p className="font-medium tabular-nums">
+            {stats.latestDate
+              ? formatDate(stats.latestDate.toISOString())
+              : "–"}
+          </p>
+        </div>
+        <div className="h-8 border-l" />
+        <div>
+          <p className="text-muted-foreground">Expires in</p>
+          <p className="font-medium tabular-nums">
+            {stats.nearestExpiry !== null
+              ? `${stats.nearestExpiry} days`
+              : "–"}
+          </p>
+        </div>
       </div>
 
-      {/* Builds list */}
-      <section className="space-y-3">
-        <h2 className="section-title">Recent builds</h2>
-        <div className="rounded-lg border">
-          {builds.map((build, i) => {
-            const version = versions.find((v) => v.id === build.versionId);
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Build</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Groups</TableHead>
+            <TableHead className="text-right">Installs</TableHead>
+            <TableHead className="text-right">Sessions</TableHead>
+            <TableHead className="text-right">Crashes</TableHead>
+            <TableHead className="text-right">Uploaded</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {builds.map((build) => {
+            const groups = MOCK_BETA_GROUPS.filter((g) =>
+              build.groupIds.includes(g.id),
+            );
+
             return (
-              <div
+              <TableRow
                 key={build.id}
-                className={`flex items-center justify-between px-4 py-3 ${i > 0 ? "border-t" : ""}`}
+                className="cursor-pointer"
+                onClick={() =>
+                  router.push(
+                    `/dashboard/apps/${appId}/testflight/${build.id}`,
+                  )
+                }
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-b from-blue-500 to-blue-600 text-white">
-                    <AppWindow size={14} weight="fill" />
-                  </div>
+                <TableCell>
                   <div>
-                    <p className="text-sm font-medium">
-                      Build {build.buildNumber}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {version
-                        ? `${PLATFORM_LABELS[version.platform] ?? version.platform} ${version.versionString}`
-                        : build.versionString}
-                    </p>
+                    <span className="font-medium">{build.buildNumber}</span>
+                    <span className="ml-1.5 text-muted-foreground">
+                      {build.versionString}
+                    </span>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="text-xs">
-                    IN, EX
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(build.uploadedDate).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </span>
-                </div>
-              </div>
+                  <p className="text-xs text-muted-foreground">
+                    {PLATFORM_LABELS[build.platform] ?? build.platform}
+                  </p>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-block size-2 shrink-0 rounded-full ${STATUS_DOTS[build.status]}`}
+                    />
+                    <span className="text-sm">{build.status}</span>
+                  </div>
+                  {build.status === "Expired" && (
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(build.expiryDate)}
+                    </p>
+                  )}
+                  {build.status === "Testing" && (
+                    <p className="text-xs text-muted-foreground">
+                      Expires {formatDate(build.expiryDate)}
+                    </p>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {groups.length > 0
+                      ? groups.map((g) => (
+                          <Badge
+                            key={g.id}
+                            variant="secondary"
+                            className="text-xs font-normal px-1.5"
+                          >
+                            {g.shortLabel}
+                          </Badge>
+                        ))
+                      : <span className="text-sm text-muted-foreground">&ndash;</span>}
+                  </div>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {build.installs > 0 ? build.installs : "–"}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {build.sessions > 0 ? build.sessions : "–"}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {build.crashes > 0 ? build.crashes : "–"}
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  {formatDate(build.uploadedDate)}
+                </TableCell>
+              </TableRow>
             );
           })}
-        </div>
-      </section>
+        </TableBody>
+      </Table>
     </div>
   );
 }
