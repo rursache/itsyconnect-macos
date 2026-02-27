@@ -31,6 +31,7 @@ function makeVersion(
     },
     build: null,
     reviewDetail: null,
+    phasedRelease: null,
   };
 }
 

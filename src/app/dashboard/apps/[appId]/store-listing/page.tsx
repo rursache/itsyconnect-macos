@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AppWindow, Lock, PencilSimple, SpinnerGap } from "@phosphor-icons/react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { AppWindow, CalendarBlank, Lock, PencilSimple, SpinnerGap } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useApps } from "@/lib/apps-context";
 import { useVersions } from "@/lib/versions-context";
@@ -69,7 +71,7 @@ export default function StoreListingPage() {
   const router = useRouter();
   const { apps } = useApps();
   const app = apps.find((a) => a.id === appId);
-  const { versions, loading: versionsLoading } = useVersions();
+  const { versions, loading: versionsLoading, updateVersion } = useVersions();
 
   const selectedVersion = useMemo(
     () => resolveVersion(versions, searchParams.get("version")),
@@ -105,7 +107,23 @@ export default function StoreListingPage() {
 
   const { setDirty, registerSave } = useFormDirty();
   const [releaseType, setReleaseType] = useState("manually");
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [phasedRelease, setPhasedRelease] = useState(false);
+
+  // Initialize release settings from version data
+  useEffect(() => {
+    if (!selectedVersion) return;
+    const { releaseType: rt, earliestReleaseDate } = selectedVersion.attributes;
+    if (rt === "SCHEDULED" || (rt === "AFTER_APPROVAL" && earliestReleaseDate)) {
+      setReleaseType("after-date");
+      if (earliestReleaseDate) setScheduledDate(new Date(earliestReleaseDate));
+    } else if (rt === "AFTER_APPROVAL") {
+      setReleaseType("automatically");
+    } else {
+      setReleaseType("manually");
+    }
+    setPhasedRelease(selectedVersion.phasedRelease != null);
+  }, [selectedVersion]);
 
   // Track original locale → localization ID mapping for diffing saves
   const originalLocaleIdsRef = useRef<Record<string, string>>({});
@@ -144,33 +162,70 @@ export default function StoreListingPage() {
   // Register save handler for the header Save button
   useEffect(() => {
     registerSave(async () => {
-      const res = await fetch(
-        `/api/apps/${appId}/versions/${versionId}/localizations`,
-        {
+      const promises: Promise<void>[] = [];
+      const allErrors: string[] = [];
+
+      // Save localizations
+      promises.push(
+        fetch(`/api/apps/${appId}/versions/${versionId}/localizations`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             locales: localeData,
             originalLocaleIds: originalLocaleIdsRef.current,
           }),
-        },
+        }).then(async (res) => {
+          const data = await res.json();
+          if (!res.ok && !data.errors) throw new Error(data.error ?? "Save failed");
+          if (data.errors?.length > 0) {
+            allErrors.push(...data.errors);
+          }
+        }),
       );
 
-      const data = await res.json();
+      // Save release settings
+      const ascReleaseType = releaseType === "manually"
+        ? "MANUAL"
+        : releaseType === "after-date"
+          ? "SCHEDULED"
+          : "AFTER_APPROVAL";
+      const earliestReleaseDate = releaseType === "after-date" && scheduledDate
+        ? scheduledDate.toISOString()
+        : null;
 
-      if (!res.ok && !data.errors) {
-        toast.error(data.error ?? "Save failed");
+      promises.push(
+        fetch(`/api/apps/${appId}/versions/${versionId}/release`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            releaseType: ascReleaseType,
+            earliestReleaseDate,
+            phasedRelease,
+            phasedReleaseId: selectedVersion?.phasedRelease?.id ?? null,
+          }),
+        }).then(async (res) => {
+          const data = await res.json();
+          if (!res.ok && !data.errors) throw new Error(data.error ?? "Failed to save release settings");
+          if (data.errors?.length > 0) {
+            allErrors.push(...data.errors);
+          }
+        }),
+      );
+
+      try {
+        await Promise.all(promises);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Save failed");
         return;
       }
 
-      if (data.errors?.length > 0) {
-        toast.warning(`Saved with ${data.errors.length} error(s)`);
-        return;
+      if (allErrors.length > 0) {
+        toast.warning(`Saved with ${allErrors.length} error(s)`);
+      } else {
+        toast.success("Store listing saved");
       }
 
-      toast.success("Store listing saved");
-
-      // Update original snapshot so subsequent saves diff correctly
+      // Update original locale snapshot
       const ids = { ...originalLocaleIdsRef.current };
       for (const locale of Object.keys(localeData)) {
         if (!ids[locale]) ids[locale] = locale;
@@ -179,9 +234,25 @@ export default function StoreListingPage() {
         if (!localeData[locale]) delete ids[locale];
       }
       originalLocaleIdsRef.current = ids;
+
+      // Update cached version with release settings
+      if (selectedVersion) {
+        updateVersion(selectedVersion.id, (v) => ({
+          ...v,
+          attributes: {
+            ...v.attributes,
+            releaseType: ascReleaseType,
+            earliestReleaseDate,
+          },
+          phasedRelease: phasedRelease
+            ? (v.phasedRelease ?? { id: "", attributes: { phasedReleaseState: "INACTIVE", currentDayNumber: null, startDate: null } })
+            : null,
+        }));
+      }
+
       setDirty(false);
     });
-  }, [appId, versionId, localeData, registerSave, setDirty]);
+  }, [appId, versionId, localeData, releaseType, scheduledDate, phasedRelease, selectedVersion, registerSave, setDirty, updateVersion]);
 
   const updateField = useCallback(
     (field: keyof LocaleFields, value: string) => {
@@ -494,6 +565,65 @@ export default function StoreListingPage() {
               {releaseType === "after-date" &&
                 "Released on a date you choose, after approval."}
             </p>
+            {releaseType === "after-date" && (
+              <div className="pt-1">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      disabled={readOnly}
+                      className="w-full max-w-xs justify-start gap-2 font-normal"
+                    >
+                      <CalendarBlank size={16} className="text-muted-foreground" />
+                      {scheduledDate
+                        ? scheduledDate.toLocaleString(undefined, {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Pick a release date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={scheduledDate}
+                      onSelect={(date) => {
+                        if (!date) return;
+                        // Preserve existing time or default to noon local
+                        const prev = scheduledDate;
+                        date.setHours(prev?.getHours() ?? 12, prev?.getMinutes() ?? 0, 0, 0);
+                        setScheduledDate(date);
+                        setDirty(true);
+                      }}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                      initialFocus
+                    />
+                    <div className="border-t px-3 py-2">
+                      <Label className="text-xs text-muted-foreground">Time</Label>
+                      <Input
+                        type="time"
+                        value={scheduledDate
+                          ? `${String(scheduledDate.getHours()).padStart(2, "0")}:${String(scheduledDate.getMinutes()).padStart(2, "0")}`
+                          : "12:00"}
+                        onChange={(e) => {
+                          const [h, m] = e.target.value.split(":").map(Number);
+                          setScheduledDate((prev) => {
+                            const d = prev ? new Date(prev) : new Date();
+                            d.setHours(h, m, 0, 0);
+                            return d;
+                          });
+                          setDirty(true);
+                        }}
+                        className="mt-1 h-8 text-sm"
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -530,7 +660,7 @@ function BuildSection({ version }: { version?: { build: { id: string; attributes
           <div>
             <p className="font-semibold">Build {build.attributes.version}</p>
             <p className="text-sm text-muted-foreground">
-              {new Date(build.attributes.uploadedDate).toLocaleDateString("en-GB", {
+              {new Date(build.attributes.uploadedDate).toLocaleString(undefined, {
                 day: "numeric",
                 month: "long",
                 year: "numeric",

@@ -23,6 +23,15 @@ export interface AscReviewDetail {
   };
 }
 
+export interface AscPhasedRelease {
+  id: string;
+  attributes: {
+    phasedReleaseState: string;
+    currentDayNumber: number | null;
+    startDate: string | null;
+  };
+}
+
 export interface AscVersion {
   id: string;
   attributes: {
@@ -39,6 +48,7 @@ export interface AscVersion {
   };
   build: AscBuild | null;
   reviewDetail: AscReviewDetail | null;
+  phasedRelease: AscPhasedRelease | null;
 }
 
 /** Get unique platforms from a list of versions. */

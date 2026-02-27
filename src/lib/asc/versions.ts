@@ -1,8 +1,8 @@
 import { ascFetch } from "./client";
 import { cacheGet, cacheSet } from "@/lib/cache";
-import type { AscBuild, AscReviewDetail, AscVersion } from "./version-types";
+import type { AscBuild, AscPhasedRelease, AscReviewDetail, AscVersion } from "./version-types";
 
-export type { AscBuild, AscReviewDetail, AscVersion };
+export type { AscBuild, AscPhasedRelease, AscReviewDetail, AscVersion };
 export { getVersionPlatforms, getVersionsByPlatform, resolveVersion } from "./version-types";
 
 const VERSIONS_TTL = 15 * 60 * 1000; // 15 min
@@ -16,6 +16,7 @@ interface AscVersionsResponse {
     relationships?: {
       build?: { data: { id: string; type: string } | null };
       appStoreReviewDetail?: { data: { id: string; type: string } | null };
+      appStoreVersionPhasedRelease?: { data: { id: string; type: string } | null };
     };
   }>;
   included?: Array<{
@@ -30,6 +31,7 @@ function resolveIncluded(
 ): AscVersion[] {
   const builds = new Map<string, AscBuild>();
   const reviewDetails = new Map<string, AscReviewDetail>();
+  const phasedReleases = new Map<string, AscPhasedRelease>();
 
   for (const item of response.included ?? []) {
     if (item.type === "builds") {
@@ -42,6 +44,11 @@ function resolveIncluded(
         id: item.id,
         attributes: item.attributes as unknown as AscReviewDetail["attributes"],
       });
+    } else if (item.type === "appStoreVersionPhasedReleases") {
+      phasedReleases.set(item.id, {
+        id: item.id,
+        attributes: item.attributes as unknown as AscPhasedRelease["attributes"],
+      });
     }
   }
 
@@ -51,6 +58,9 @@ function resolveIncluded(
     build: builds.get(v.relationships?.build?.data?.id ?? "") ?? null,
     reviewDetail:
       reviewDetails.get(v.relationships?.appStoreReviewDetail?.data?.id ?? "") ??
+      null,
+    phasedRelease:
+      phasedReleases.get(v.relationships?.appStoreVersionPhasedRelease?.data?.id ?? "") ??
       null,
   }));
 }
@@ -68,10 +78,11 @@ export async function listVersions(
 
   const response = await ascFetch<AscVersionsResponse>(
     `/v1/apps/${appId}/appStoreVersions` +
-      `?fields[appStoreVersions]=versionString,appVersionState,appStoreState,platform,copyright,releaseType,earliestReleaseDate,downloadable,createdDate,build,appStoreReviewDetail` +
-      `&include=build,appStoreReviewDetail` +
+      `?fields[appStoreVersions]=versionString,appVersionState,appStoreState,platform,copyright,releaseType,earliestReleaseDate,downloadable,createdDate,build,appStoreReviewDetail,appStoreVersionPhasedRelease` +
+      `&include=build,appStoreReviewDetail,appStoreVersionPhasedRelease` +
       `&fields[builds]=version,uploadedDate,processingState,minOsVersion,iconAssetToken` +
-      `&fields[appStoreReviewDetails]=contactEmail,contactFirstName,contactLastName,contactPhone,demoAccountName,demoAccountPassword,demoAccountRequired,notes`,
+      `&fields[appStoreReviewDetails]=contactEmail,contactFirstName,contactLastName,contactPhone,demoAccountName,demoAccountPassword,demoAccountRequired,notes` +
+      `&fields[appStoreVersionPhasedReleases]=phasedReleaseState,currentDayNumber,startDate`,
   );
 
   const versions = resolveIncluded(response);
