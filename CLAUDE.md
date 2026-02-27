@@ -16,7 +16,16 @@ Before writing any code, read these docs:
 2. **Phosphor icons only** – `@phosphor-icons/react`. Never import from lucide-react.
 3. **Geist font** – sans (body) and mono (code/inputs). Set globally, never override.
 4. **Custom CSS classes over inline Tailwind** – reusable styles live in `globals.css` `@layer components`. Use `.section-title` for form headings, not ad-hoc utility classes. Add new classes there when a pattern repeats.
-5. **Mock data first** – new features start as navigatable prototypes with mock data in `src/lib/mock-data.ts`, then get wired to real APIs.
+5. **Mock data first** – new features start as navigatable prototypes with mock data in `src/lib/mock-*.ts`, then get wired to real APIs. Never delete mock data files – they power demo mode (see [docs/DEMO.md](docs/DEMO.md)).
+
+## Demo mode
+
+The app has a planned demo mode for App Store review and first-run exploration. See **[docs/DEMO.md](docs/DEMO.md)** for the full design.
+
+Key rules:
+- **Never delete `src/lib/mock-*.ts` files** – they power demo mode. Currently: `mock-data.ts` (apps, versions, builds, localizations), `mock-sales.ts`, `mock-analytics.ts`, `mock-testflight.ts`.
+- All mock files use consistent app IDs (`app-001` = Weatherly, `app-002` = Taskflow, `app-003` = Photon Camera).
+- When wiring a section to real ASC data, keep the mock data file – the API route should check the demo flag and return mock data when active.
 
 ## Core principles
 
