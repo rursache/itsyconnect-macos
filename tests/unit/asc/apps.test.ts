@@ -13,7 +13,7 @@ vi.mock("@/lib/cache", () => ({
   cacheSet: (...args: unknown[]) => mockCacheSet(...args),
 }));
 
-import { listApps, buildIconUrl } from "@/lib/asc/apps";
+import { listApps, buildIconUrl, updateAppAttributes } from "@/lib/asc/apps";
 
 const TEMPLATE_URL =
   "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ab/cd/ef/AppIcon.icns/{w}x{h}bb.{f}";
@@ -172,5 +172,47 @@ describe("listApps", () => {
       "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ab/cd/ef/AppIcon.icns/128x128bb.png",
     );
     expect(result[1].attributes.iconUrl).toBeNull();
+  });
+});
+
+describe("updateAppAttributes", () => {
+  beforeEach(() => {
+    mockAscFetch.mockReset();
+    mockCacheSet.mockReset();
+  });
+
+  it("PATCHes the app and invalidates cache", async () => {
+    mockAscFetch.mockResolvedValue({});
+
+    await updateAppAttributes("app-1", {
+      contentRightsDeclaration: "DOES_NOT_USE_THIRD_PARTY_CONTENT",
+    });
+
+    expect(mockAscFetch).toHaveBeenCalledWith(
+      "/v1/apps/app-1",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+
+    const body = JSON.parse(mockAscFetch.mock.calls[0][1].body);
+    expect(body.data.type).toBe("apps");
+    expect(body.data.id).toBe("app-1");
+    expect(body.data.attributes.contentRightsDeclaration).toBe(
+      "DOES_NOT_USE_THIRD_PARTY_CONTENT",
+    );
+
+    expect(mockCacheSet).toHaveBeenCalledWith("apps", null, 0);
+  });
+
+  it("sends subscription URL attributes", async () => {
+    mockAscFetch.mockResolvedValue({});
+
+    await updateAppAttributes("app-1", {
+      subscriptionStatusUrl: "https://example.com/sub",
+      subscriptionStatusUrlForSandbox: null,
+    });
+
+    const body = JSON.parse(mockAscFetch.mock.calls[0][1].body);
+    expect(body.data.attributes.subscriptionStatusUrl).toBe("https://example.com/sub");
+    expect(body.data.attributes.subscriptionStatusUrlForSandbox).toBeNull();
   });
 });

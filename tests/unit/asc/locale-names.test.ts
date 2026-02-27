@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LOCALE_NAMES, localeName, FIELD_LIMITS } from "@/lib/asc/locale-names";
+import { LOCALE_NAMES, localeName, sortLocales, FIELD_LIMITS } from "@/lib/asc/locale-names";
 
 describe("locale-names", () => {
   describe("LOCALE_NAMES", () => {
@@ -23,6 +23,28 @@ describe("locale-names", () => {
     it("returns the locale code itself for an unknown locale", () => {
       expect(localeName("xx-YY")).toBe("xx-YY");
       expect(localeName("unknown")).toBe("unknown");
+    });
+  });
+
+  describe("sortLocales", () => {
+    it("places primary locale first", () => {
+      const sorted = sortLocales(["de-DE", "en-US", "fr-FR"], "en-US");
+      expect(sorted[0]).toBe("en-US");
+    });
+
+    it("sorts remaining locales alphabetically by display name", () => {
+      const sorted = sortLocales(["ja", "de-DE", "en-US", "fr-FR"], "en-US");
+      expect(sorted).toEqual(["en-US", "fr-FR", "de-DE", "ja"]);
+    });
+
+    it("does not mutate the original array", () => {
+      const input = ["de-DE", "en-US"];
+      sortLocales(input, "en-US");
+      expect(input).toEqual(["de-DE", "en-US"]);
+    });
+
+    it("handles empty array", () => {
+      expect(sortLocales([], "en-US")).toEqual([]);
     });
   });
 

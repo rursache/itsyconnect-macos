@@ -8,12 +8,54 @@ vi.mock("@/lib/asc/client", () => ({
   ascFetch: (...args: unknown[]) => mockAscFetch(...args),
 }));
 
+const mockCacheInvalidate = vi.fn();
+
 vi.mock("@/lib/cache", () => ({
   cacheGet: (...args: unknown[]) => mockCacheGet(...args),
   cacheSet: (...args: unknown[]) => mockCacheSet(...args),
+  cacheInvalidate: (...args: unknown[]) => mockCacheInvalidate(...args),
 }));
 
-import { listAppInfos, listAppInfoLocalizations } from "@/lib/asc/app-info";
+import { listAppInfos, listAppInfoLocalizations, updateAppInfoCategories } from "@/lib/asc/app-info";
+
+describe("updateAppInfoCategories", () => {
+  beforeEach(() => {
+    mockAscFetch.mockReset();
+    mockCacheInvalidate.mockReset();
+  });
+
+  it("PATCHes categories and invalidates cache", async () => {
+    mockAscFetch.mockResolvedValue({});
+
+    await updateAppInfoCategories("info-1", "app-1", "GAMES", "ENTERTAINMENT");
+
+    expect(mockAscFetch).toHaveBeenCalledWith(
+      "/v1/appInfos/info-1",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+
+    const body = JSON.parse(mockAscFetch.mock.calls[0][1].body);
+    expect(body.data.relationships.primaryCategory.data).toEqual({
+      type: "appCategories",
+      id: "GAMES",
+    });
+    expect(body.data.relationships.secondaryCategory.data).toEqual({
+      type: "appCategories",
+      id: "ENTERTAINMENT",
+    });
+    expect(mockCacheInvalidate).toHaveBeenCalledWith("appInfos:app-1");
+  });
+
+  it("sends null data for null categories", async () => {
+    mockAscFetch.mockResolvedValue({});
+
+    await updateAppInfoCategories("info-1", "app-1", null, null);
+
+    const body = JSON.parse(mockAscFetch.mock.calls[0][1].body);
+    expect(body.data.relationships.primaryCategory.data).toBeNull();
+    expect(body.data.relationships.secondaryCategory.data).toBeNull();
+  });
+});
 
 describe("listAppInfos", () => {
   beforeEach(() => {

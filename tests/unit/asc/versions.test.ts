@@ -156,6 +156,52 @@ describe("listVersions", () => {
     expect(result[0].reviewDetail).toBeNull();
   });
 
+  it("resolves included phased releases", async () => {
+    mockCacheGet.mockReturnValue(null);
+    mockAscFetch.mockResolvedValue({
+      data: [
+        {
+          id: "v-1",
+          type: "appStoreVersions",
+          attributes: {
+            versionString: "1.0.0",
+            appVersionState: "READY_FOR_SALE",
+            appStoreState: "READY_FOR_SALE",
+            platform: "IOS",
+            copyright: null,
+            releaseType: "SCHEDULED",
+            earliestReleaseDate: null,
+            downloadable: true,
+            createdDate: "2026-01-01T00:00:00Z",
+            reviewType: null,
+          },
+          relationships: {
+            appStoreVersionPhasedRelease: {
+              data: { id: "pr-1", type: "appStoreVersionPhasedReleases" },
+            },
+          },
+        },
+      ],
+      included: [
+        {
+          id: "pr-1",
+          type: "appStoreVersionPhasedReleases",
+          attributes: {
+            phasedReleaseState: "ACTIVE",
+            currentDayNumber: 3,
+            startDate: "2026-01-15T00:00:00Z",
+          },
+        },
+      ],
+    });
+
+    const result = await listVersions("app-1");
+    expect(result[0].phasedRelease).not.toBeNull();
+    expect(result[0].phasedRelease!.id).toBe("pr-1");
+    expect(result[0].phasedRelease!.attributes.phasedReleaseState).toBe("ACTIVE");
+    expect(result[0].phasedRelease!.attributes.currentDayNumber).toBe(3);
+  });
+
   it("bypasses cache when forceRefresh is true", async () => {
     mockCacheGet.mockReturnValue([]);
     mockAscFetch.mockResolvedValue({ data: [] });

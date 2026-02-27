@@ -140,6 +140,17 @@ describe("ascFetch", () => {
     await expect(ascFetch("/v1/apps")).rejects.toThrow("ASC API 500");
   });
 
+  it("returns null for 204 no-content responses", async () => {
+    insertCred();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+    });
+
+    const result = await ascFetch("/v1/appScreenshots/ss-1");
+    expect(result).toBeNull();
+  });
+
   it("includes Authorization header with JWT", async () => {
     insertCred();
     mockFetch.mockResolvedValueOnce({
