@@ -186,6 +186,14 @@ function ScreenshotSetCard({
       !!s.attributes.assetToken,
   );
 
+  // Preload full-size images in background so lightbox opens instantly
+  useEffect(() => {
+    for (const s of previewableScreenshots) {
+      const img = new Image();
+      img.src = screenshotImageUrl(s.attributes.assetToken!, 1200);
+    }
+  }, [previewableScreenshots]);
+
   const previewScreenshot =
     previewIndex !== null ? previewableScreenshots[previewIndex] : null;
 
@@ -323,17 +331,26 @@ function ScreenshotSetCard({
             className="bg-black/80"
             onClick={() => setPreviewIndex(null)}
           />
-          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            onClick={() => setPreviewIndex(null)}
+          >
             <DialogTitle className="sr-only">Screenshot preview</DialogTitle>
             {previewScreenshot && (
-              <div className="pointer-events-auto flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
+                  disabled={previewIndex === 0}
                   className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25",
-                    previewIndex === 0 && "invisible",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white",
+                    previewIndex === 0
+                      ? "bg-white/5 text-white/20"
+                      : "bg-white/15 hover:bg-white/25",
                   )}
-                  onClick={() => setPreviewIndex(previewIndex! - 1)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (previewIndex! > 0) setPreviewIndex(previewIndex! - 1);
+                  }}
                 >
                   <CaretLeft size={24} />
                 </button>
@@ -347,12 +364,18 @@ function ScreenshotSetCard({
                 />
                 <button
                   type="button"
+                  disabled={previewIndex === previewableScreenshots.length - 1}
                   className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25",
-                    previewIndex === previewableScreenshots.length - 1 &&
-                      "invisible",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white",
+                    previewIndex === previewableScreenshots.length - 1
+                      ? "bg-white/5 text-white/20"
+                      : "bg-white/15 hover:bg-white/25",
                   )}
-                  onClick={() => setPreviewIndex(previewIndex! + 1)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (previewIndex! < previewableScreenshots.length - 1)
+                      setPreviewIndex(previewIndex! + 1);
+                  }}
                 >
                   <CaretRight size={24} />
                 </button>
