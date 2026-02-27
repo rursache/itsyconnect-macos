@@ -83,6 +83,7 @@ export function HeaderVersionPicker() {
   const { versions, refresh } = useVersions();
   const { guardNavigation } = useFormDirty();
 
+  const [platformPickerOpen, setPlatformPickerOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [versionString, setVersionString] = useState("");
@@ -154,18 +155,51 @@ export function HeaderVersionPicker() {
   return (
     <>
       <Separator orientation="vertical" className="mx-2 !h-4" />
-      <Select value={currentPlatform} onValueChange={handlePlatformChange}>
-        <SelectTrigger className="!h-8 gap-1 bg-background px-2 text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent position="popper" sideOffset={4}>
-          {platforms.map((p) => (
-            <SelectItem key={p} value={p}>
-              {PLATFORM_LABELS[p] ?? p}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Popover open={platformPickerOpen} onOpenChange={setPlatformPickerOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="h-8 gap-1.5 px-2.5 text-sm">
+            {PLATFORM_LABELS[currentPlatform] ?? currentPlatform}
+            <CaretDown size={12} className="text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-0" align="start">
+          <Command>
+            <CommandList>
+              <CommandGroup>
+                {platforms.map((p) => (
+                  <CommandItem
+                    key={p}
+                    value={PLATFORM_LABELS[p] ?? p}
+                    onSelect={() => {
+                      handlePlatformChange(p);
+                      setPlatformPickerOpen(false);
+                    }}
+                  >
+                    {p === currentPlatform && (
+                      <Check size={14} className="text-foreground" />
+                    )}
+                    <span className={p !== currentPlatform ? "pl-[22px]" : ""}>
+                      {PLATFORM_LABELS[p] ?? p}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <CommandSeparator />
+              <CommandGroup>
+                <CommandItem
+                  onSelect={() => {
+                    setPlatformPickerOpen(false);
+                    guardNavigation(openDialog);
+                  }}
+                >
+                  <Plus size={14} className="text-muted-foreground" />
+                  {"New platform\u2026"}
+                </CommandItem>
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
 
       <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
         <PopoverTrigger asChild>
