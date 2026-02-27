@@ -31,7 +31,7 @@ export default function DashboardPage() {
         </div>
         <h1 className="mt-6 text-2xl font-bold tracking-tight">No apps yet</h1>
         <p className="mt-2 max-w-sm text-muted-foreground">
-          Itsyship doesn&apos;t support creating apps yet. Create your apps in{" "}
+          Itsyconnect doesn&apos;t support creating apps yet. Create your apps in{" "}
           <a
             href="https://appstoreconnect.apple.com"
             target="_blank"

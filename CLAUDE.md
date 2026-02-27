@@ -1,4 +1,4 @@
-# Itsyship – LLM build guide
+# Itsyconnect – LLM build guide
 
 Self-hosted App Store Connect dashboard. Next.js 16, TypeScript, Tailwind v4, shadcn/ui, SQLite.
 

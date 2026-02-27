@@ -2,7 +2,7 @@
 
 ## The problem
 
-Itsyship requires App Store Connect credentials to function. This creates two issues:
+Itsyconnect requires App Store Connect credentials to function. This creates two issues:
 
 1. **App Store review** – Apple reviewers won't have ASC credentials, and sharing ours isn't practical. Without a way to use the app credential-free, it will be rejected.
 2. **First-run experience** – new users should be able to explore the app before committing to credential setup.

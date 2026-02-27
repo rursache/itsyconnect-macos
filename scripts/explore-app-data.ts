@@ -1,5 +1,5 @@
 /**
- * Explore all ASC app data needed for Itsyship dashboard pages.
+ * Explore all ASC app data needed for Itsyconnect dashboard pages.
  * Dumps JSON files to scripts/output/ for analysis.
  *
  * Run: npx tsx scripts/explore-app-data.ts

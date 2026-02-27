@@ -4,8 +4,8 @@ import { MakerPKG } from "@electron-forge/maker-pkg";
 
 const config: ForgeConfig = {
   packagerConfig: {
-    appBundleId: "com.itsyship.app",
-    name: "Itsyship",
+    appBundleId: "com.itsyconnect.app",
+    name: "Itsyconnect",
     icon: "public/icon",
     asar: false,
     osxSign: process.env.APPLE_TEAM_ID ? {} : undefined,

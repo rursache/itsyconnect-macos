@@ -1,12 +1,12 @@
-<h1>Itsyship</h1>
+<h1>Itsyconnect</h1>
 
 <p>
   App Store Connect, but good.
 </p>
 
 <p>
-  <a href="https://github.com/nickustinov/itsyship/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--v3-blue.svg" alt="License" /></a>
-  <a href="https://github.com/nickustinov/itsyship/actions"><img src="https://img.shields.io/github/actions/workflow/status/nickustinov/itsyship/ci.yml?branch=main" alt="CI" /></a>
+  <a href="https://github.com/nickustinov/itsyconnect-macos/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--v3-blue.svg" alt="License" /></a>
+  <a href="https://github.com/nickustinov/itsyconnect-macos/actions"><img src="https://img.shields.io/github/actions/workflow/status/nickustinov/itsyconnect-macos/ci.yml?branch=main" alt="CI" /></a>
   <img src="https://img.shields.io/badge/electron-40-9feaf9" alt="Electron" />
   <img src="https://img.shields.io/badge/next.js-16-black" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/sqlite-WAL-green" alt="SQLite" />
@@ -39,8 +39,8 @@ Electron app
 ├── /app/api/*            → REST API routes (Next.js)
 ├── /lib/asc/*            → App Store Connect SDK wrapper
 ├── /db/*                 → Drizzle ORM + SQLite (WAL mode)
-└── ~/Library/Application Support/Itsyship/
-    ├── itsyship.db       → SQLite database
+└── ~/Library/Application Support/Itsyconnect/
+    ├── itsyconnect.db    → SQLite database
     └── master-key.enc    → Keychain-encrypted master key
 ```
 
@@ -49,8 +49,8 @@ Electron app
 ## Quick start
 
 ```bash
-git clone https://github.com/nickustinov/itsyship.git
-cd itsyship
+git clone https://github.com/nickustinov/itsyconnect-macos.git
+cd itsyconnect-macos
 npm install
 npm run electron:dev
 ```

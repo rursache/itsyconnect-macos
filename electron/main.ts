@@ -28,7 +28,7 @@ function ensureMasterKey(): void {
 // --- Database path ---
 
 function setDatabasePath(): void {
-  process.env.DATABASE_PATH = path.join(app.getPath("userData"), "itsyship.db");
+  process.env.DATABASE_PATH = path.join(app.getPath("userData"), "itsyconnect.db");
 }
 
 // --- Window state persistence ---
@@ -144,7 +144,7 @@ function waitForServer(port: number, timeout = 30_000): Promise<void> {
 // --- Menu ---
 
 function setupMenu(): void {
-  const appName = "Itsyship";
+  const appName = "Itsyconnect";
   const template: Electron.MenuItemConstructorOptions[] = [
     {
       label: appName,
@@ -273,7 +273,7 @@ if (!gotLock) {
     process.env.ELECTRON = "1";
     ensureMasterKey();
     setDatabasePath();
-    app.name = "Itsyship";
+    app.name = "Itsyconnect";
     setupMenu();
 
     const port = isDev ? await startDevServer() : await startProdServer();

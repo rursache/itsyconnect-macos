@@ -18,7 +18,7 @@ import {
   EyeSlash,
   Info,
   Lock,
-  Sailboat,
+  Package,
   SpinnerGap,
   XCircle,
 } from "@phosphor-icons/react";
@@ -238,11 +238,11 @@ export default function SetupPage() {
             {step === 2 ? (
               <AppStoreLogoIcon size={32} weight="fill" />
             ) : (
-              <Sailboat size={32} weight="fill" />
+              <Package size={32} weight="fill" />
             )}
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
-            {step === 1 && "Welcome to Itsyship"}
+            {step === 1 && "Welcome to Itsyconnect"}
             {step === 2 && "Set up App Store Connect"}
             {step === 3 && "Set up AI"}
           </h1>
