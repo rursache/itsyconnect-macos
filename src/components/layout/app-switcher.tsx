@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { CaretUpDown, Plus } from "@phosphor-icons/react";
+import { CaretUpDown } from "@phosphor-icons/react";
 import { Spinner } from "@/components/ui/spinner";
 import { useApps } from "@/lib/apps-context";
 import { useFormDirty } from "@/lib/form-dirty-context";
@@ -11,7 +11,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -43,14 +42,14 @@ export function AppSwitcher() {
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-muted">
                   <Spinner className="text-muted-foreground" />
                 </div>
-              ) : (
+              ) : activeApp ? (
                 <AppIcon
-                  iconUrl={activeApp?.iconUrl}
-                  name={activeApp?.name ?? "App"}
+                  iconUrl={activeApp.iconUrl}
+                  name={activeApp.name}
                   className="size-8"
                   iconSize={16}
                 />
-              )}
+              ) : null}
               <span className="truncate font-semibold text-sm">
                 {loading
                   ? "Loading..."
@@ -84,6 +83,7 @@ export function AppSwitcher() {
                   name={app.name}
                   className="size-6"
                   iconSize={12}
+                  rounded="rounded-md"
                 />
                 <div className="grid flex-1 leading-tight">
                   <span className="truncate font-medium">{app.name}</span>
@@ -93,18 +93,6 @@ export function AppSwitcher() {
                 </div>
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => guardNavigation(() => router.push("/dashboard/settings"))}
-              className="gap-2 p-2"
-            >
-              <div className="flex size-6 items-center justify-center rounded-md border bg-background">
-                <Plus size={14} />
-              </div>
-              <div className="font-medium text-muted-foreground">
-                Add credentials
-              </div>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

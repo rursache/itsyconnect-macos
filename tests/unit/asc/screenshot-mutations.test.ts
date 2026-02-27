@@ -116,7 +116,7 @@ describe("screenshot-mutations", () => {
         },
       });
 
-      mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 500, text: async () => "Internal Server Error" });
 
       await expect(
         uploadScreenshot("set-1", "screenshot.png", fileBuffer),

@@ -122,7 +122,10 @@ export interface AscScreenshot {
     fileSize: number;
     fileName: string;
     sourceFileChecksum: string | null;
-    assetDeliveryState: { state: string } | null;
+    assetDeliveryState: {
+      state: string;
+      errors?: Array<{ code: string; description: string }>;
+    } | null;
     assetToken: string | null;
   };
 }

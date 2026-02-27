@@ -394,7 +394,6 @@ export function HeaderVersionActions() {
     <>
       {showNewVersion && (
         <Button
-          variant="outline"
           size="sm"
           className="h-8 gap-1 text-sm"
           onClick={() => guardNavigation(openDialog)}

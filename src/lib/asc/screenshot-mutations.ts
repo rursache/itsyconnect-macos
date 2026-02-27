@@ -64,7 +64,8 @@ export async function uploadScreenshot(
 
   // Step 2: Upload binary to each pre-signed URL
   for (const op of operations) {
-    const chunk = fileBuffer.subarray(op.offset, op.offset + op.length);
+    const body = Buffer.alloc(op.length);
+    fileBuffer.copy(body, 0, op.offset, op.offset + op.length);
     const headers: Record<string, string> = {};
     for (const h of op.requestHeaders) {
       headers[h.name] = h.value;
@@ -73,11 +74,12 @@ export async function uploadScreenshot(
     const res = await fetch(op.url, {
       method: op.method,
       headers,
-      body: new Blob([new Uint8Array(chunk)]),
+      body,
     });
 
     if (!res.ok) {
-      throw new Error(`Screenshot upload failed: ${res.status}`);
+      const resText = await res.text();
+      throw new Error(`Screenshot upload failed: ${res.status} ${resText.slice(0, 200)}`);
     }
   }
 

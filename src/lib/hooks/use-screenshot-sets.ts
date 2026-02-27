@@ -1,7 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import type { AscScreenshotSet } from "@/lib/asc/screenshots";
+
+const POLL_INTERVAL = 3000;
+
+const TERMINAL_STATES = new Set(["COMPLETE", "FAILED"]);
+
+function hasProcessingScreenshots(sets: AscScreenshotSet[]): boolean {
+  return sets.some((s) =>
+    s.screenshots.some(
+      (ss) => !TERMINAL_STATES.has(ss.attributes.assetDeliveryState?.state ?? ""),
+    ),
+  );
+}
 
 interface UseScreenshotSetsResult {
   screenshotSets: AscScreenshotSet[];
@@ -18,20 +30,25 @@ export function useScreenshotSets(
   const [screenshotSets, setScreenshotSets] = useState<AscScreenshotSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const initialLoadDone = useRef(false);
 
-  const refresh = useCallback(async () => {
+  const fetchSets = useCallback(async (forceRefresh = false) => {
     if (!appId || !versionId || !localizationId) {
       setScreenshotSets([]);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    // Only show full-page loading spinner on initial load
+    if (!initialLoadDone.current) {
+      setLoading(true);
+    }
     setError(null);
 
+    const qs = forceRefresh ? "?refresh=1" : "";
     try {
       const res = await fetch(
-        `/api/apps/${appId}/versions/${versionId}/localizations/${localizationId}/screenshots`,
+        `/api/apps/${appId}/versions/${versionId}/localizations/${localizationId}/screenshots${qs}`,
       );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -42,6 +59,7 @@ export function useScreenshotSets(
 
       const data = await res.json();
       setScreenshotSets(data.screenshotSets ?? []);
+      initialLoadDone.current = true;
     } catch {
       setError("Network error");
       setScreenshotSets([]);
@@ -50,9 +68,27 @@ export function useScreenshotSets(
     }
   }, [appId, versionId, localizationId]);
 
+  const refresh = useCallback(() => fetchSets(), [fetchSets]);
+
+  // Reset initial load flag when parameters change
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    initialLoadDone.current = false;
+  }, [appId, versionId, localizationId]);
+
+  useEffect(() => {
+    fetchSets();
+  }, [fetchSets]);
+
+  // Auto-poll while any screenshot is still processing
+  useEffect(() => {
+    if (!hasProcessingScreenshots(screenshotSets)) return;
+
+    const timer = setInterval(() => {
+      fetchSets(true);
+    }, POLL_INTERVAL);
+
+    return () => clearInterval(timer);
+  }, [screenshotSets, fetchSets]);
 
   return { screenshotSets, loading, error, refresh };
 }

@@ -15,15 +15,17 @@ type RouteParams = {
   }>;
 };
 
-export async function GET(_request: Request, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
   const { localizationId } = await params;
+  const { searchParams } = new URL(request.url);
+  const forceRefresh = searchParams.get("refresh") === "1";
 
   if (!hasCredentials()) {
     return NextResponse.json({ screenshotSets: [], meta: null });
   }
 
   try {
-    const screenshotSets = await listScreenshotSets(localizationId);
+    const screenshotSets = await listScreenshotSets(localizationId, forceRefresh);
     const meta = cacheGetMeta(`screenshotSets:${localizationId}`);
 
     return NextResponse.json({ screenshotSets, meta });

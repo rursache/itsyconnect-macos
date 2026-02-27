@@ -7,23 +7,25 @@ interface AppIconProps {
   className?: string;
   /** Phosphor icon size in px for the fallback. */
   iconSize?: number;
+  /** Border-radius class. Defaults to "rounded-lg". */
+  rounded?: string;
 }
 
-export function AppIcon({ iconUrl, name, className = "size-8", iconSize = 16 }: AppIconProps) {
+export function AppIcon({ iconUrl, name, className = "size-8", iconSize = 16, rounded = "rounded-lg" }: AppIconProps) {
   if (iconUrl) {
     return (
       /* eslint-disable-next-line @next/next/no-img-element */
       <img
         src={iconUrl}
         alt={name}
-        className={`${className} rounded-lg shadow-sm`}
+        className={`${className} ${rounded} shadow-sm`}
       />
     );
   }
 
   return (
     <div
-      className={`flex items-center justify-center rounded-lg bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-sm ${className}`}
+      className={`flex items-center justify-center bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-sm ${rounded} ${className}`}
     >
       <AppWindow size={iconSize} weight="fill" />
     </div>
