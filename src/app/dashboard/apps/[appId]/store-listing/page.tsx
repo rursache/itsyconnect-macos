@@ -197,6 +197,7 @@ export default function StoreListingPage() {
       const allErrors: string[] = [];
 
       // Save localizations
+      let locCreatedIds: Record<string, string> = {};
       promises.push(
         fetch(`/api/apps/${appId}/versions/${versionId}/localizations`, {
           method: "PUT",
@@ -211,6 +212,7 @@ export default function StoreListingPage() {
           if (data.errors?.length > 0) {
             allErrors.push(...data.errors);
           }
+          locCreatedIds = data.createdIds ?? {};
         }),
       );
 
@@ -256,10 +258,10 @@ export default function StoreListingPage() {
         toast.success("Store listing saved");
       }
 
-      // Update original locale snapshot
+      // Update original snapshot with real IDs from created locales
       const ids = { ...originalLocaleIdsRef.current };
-      for (const locale of Object.keys(localeData)) {
-        if (!ids[locale]) ids[locale] = locale;
+      for (const [locale, id] of Object.entries(locCreatedIds)) {
+        ids[locale] = id;
       }
       for (const locale of Object.keys(ids)) {
         if (!localeData[locale]) delete ids[locale];
@@ -298,7 +300,8 @@ export default function StoreListingPage() {
 
   function handleAddLocale(locale: string) {
     setLocaleData((prev) => {
-      const next = { ...prev, [locale]: emptyLocaleFields() };
+      const base = prev[primaryLocale] ?? emptyLocaleFields();
+      const next = { ...prev, [locale]: { ...base } };
       setLocales(sortLocales(Object.keys(next), primaryLocale));
       return next;
     });
@@ -309,9 +312,10 @@ export default function StoreListingPage() {
 
   function handleBulkAddLocales(codes: string[]) {
     setLocaleData((prev) => {
+      const base = prev[primaryLocale] ?? emptyLocaleFields();
       const next = { ...prev };
       for (const code of codes) {
-        if (!next[code]) next[code] = emptyLocaleFields();
+        if (!next[code]) next[code] = { ...base };
       }
       setLocales(sortLocales(Object.keys(next), primaryLocale));
       return next;

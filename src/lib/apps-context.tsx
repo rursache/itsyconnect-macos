@@ -9,6 +9,8 @@ export interface App {
   sku: string;
   primaryLocale: string;
   contentRightsDeclaration: string | null;
+  subscriptionStatusUrl: string | null;
+  subscriptionStatusUrlForSandbox: string | null;
   iconUrl: string | null;
 }
 
@@ -36,6 +38,8 @@ function normalizeApp(raw: { id: string; attributes?: Record<string, string | nu
       sku: raw.attributes.sku ?? "",
       primaryLocale: raw.attributes.primaryLocale ?? "",
       contentRightsDeclaration: raw.attributes.contentRightsDeclaration ?? null,
+      subscriptionStatusUrl: raw.attributes.subscriptionStatusUrl ?? null,
+      subscriptionStatusUrlForSandbox: raw.attributes.subscriptionStatusUrlForSandbox ?? null,
       iconUrl: raw.attributes.iconUrl ?? null,
     };
   }

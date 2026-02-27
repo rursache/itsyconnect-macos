@@ -15,10 +15,14 @@ export async function PATCH(
   try {
     const body = await request.json() as {
       contentRightsDeclaration?: string;
+      subscriptionStatusUrl?: string | null;
+      subscriptionStatusUrlForSandbox?: string | null;
     };
 
     await updateAppAttributes(appId, {
       contentRightsDeclaration: body.contentRightsDeclaration,
+      subscriptionStatusUrl: body.subscriptionStatusUrl,
+      subscriptionStatusUrlForSandbox: body.subscriptionStatusUrlForSandbox,
     });
 
     return NextResponse.json({ ok: true });

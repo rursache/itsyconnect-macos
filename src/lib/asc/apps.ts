@@ -11,6 +11,8 @@ export interface AscApp {
     sku: string;
     primaryLocale: string;
     contentRightsDeclaration: string | null;
+    subscriptionStatusUrl: string | null;
+    subscriptionStatusUrlForSandbox: string | null;
     iconUrl: string | null;
   };
 }
@@ -24,6 +26,8 @@ interface AscAppsResponse {
       sku: string;
       primaryLocale: string;
       contentRightsDeclaration: string | null;
+      subscriptionStatusUrl: string | null;
+      subscriptionStatusUrlForSandbox: string | null;
     };
   }>;
 }
@@ -84,7 +88,7 @@ export async function listApps(forceRefresh = false): Promise<AscApp[]> {
   }
 
   const response = await ascFetch<AscAppsResponse>(
-    "/v1/apps?fields[apps]=name,bundleId,sku,primaryLocale,contentRightsDeclaration&limit=200",
+    "/v1/apps?fields[apps]=name,bundleId,sku,primaryLocale,contentRightsDeclaration,subscriptionStatusUrl,subscriptionStatusUrlForSandbox&limit=200",
   );
 
   const iconUrls = await fetchBuildIconUrls(response.data.map((a) => a.id));
@@ -103,7 +107,11 @@ export async function listApps(forceRefresh = false): Promise<AscApp[]> {
 
 export async function updateAppAttributes(
   appId: string,
-  attributes: { contentRightsDeclaration?: string },
+  attributes: {
+    contentRightsDeclaration?: string;
+    subscriptionStatusUrl?: string | null;
+    subscriptionStatusUrlForSandbox?: string | null;
+  },
 ): Promise<void> {
   await ascFetch(`/v1/apps/${appId}`, {
     method: "PATCH",

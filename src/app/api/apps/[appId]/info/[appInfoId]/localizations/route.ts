@@ -49,6 +49,7 @@ export async function PUT(
 
     const { locales, originalLocaleIds } = body;
     const errors: string[] = [];
+    const createdIds: Record<string, string> = {};
 
     const updates: Promise<void>[] = [];
 
@@ -62,7 +63,9 @@ export async function PUT(
         );
       } else {
         updates.push(
-          createAppInfoLocalization(appInfoId, locale, fields).catch((err) => {
+          createAppInfoLocalization(appInfoId, locale, fields).then((id) => {
+            createdIds[locale] = id;
+          }).catch((err) => {
             errors.push(`Create ${locale}: ${err instanceof Error ? err.message : "failed"}`);
           }),
         );
@@ -84,10 +87,10 @@ export async function PUT(
     invalidateAppInfoLocalizationsCache(appInfoId);
 
     if (errors.length > 0) {
-      return NextResponse.json({ ok: false, errors }, { status: 207 });
+      return NextResponse.json({ ok: false, errors, createdIds }, { status: 207 });
     }
 
-    return NextResponse.json({ ok: true, errors: [] });
+    return NextResponse.json({ ok: true, errors: [], createdIds });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

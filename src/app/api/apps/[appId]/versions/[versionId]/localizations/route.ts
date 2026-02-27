@@ -49,6 +49,7 @@ export async function PUT(
 
     const { locales, originalLocaleIds } = body;
     const errors: string[] = [];
+    const createdIds: Record<string, string> = {};
 
     // Diff: update, create, delete
     const updates: Promise<void>[] = [];
@@ -63,7 +64,9 @@ export async function PUT(
         );
       } else {
         updates.push(
-          createVersionLocalization(versionId, locale, fields).catch((err) => {
+          createVersionLocalization(versionId, locale, fields).then((id) => {
+            createdIds[locale] = id;
+          }).catch((err) => {
             errors.push(`Create ${locale}: ${err instanceof Error ? err.message : "failed"}`);
           }),
         );
@@ -85,10 +88,10 @@ export async function PUT(
     invalidateLocalizationsCache(versionId);
 
     if (errors.length > 0) {
-      return NextResponse.json({ ok: false, errors }, { status: 207 });
+      return NextResponse.json({ ok: false, errors, createdIds }, { status: 207 });
     }
 
-    return NextResponse.json({ ok: true, errors: [] });
+    return NextResponse.json({ ok: true, errors: [], createdIds });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

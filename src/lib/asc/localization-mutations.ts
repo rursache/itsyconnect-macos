@@ -39,13 +39,13 @@ export async function createVersionLocalization(
   versionId: string,
   locale: string,
   attributes: Record<string, unknown>,
-): Promise<void> {
+): Promise<string> {
   // Strip empty strings – ASC rejects them on create
   const cleaned: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(attributes)) {
     if (v !== "") cleaned[k] = v;
   }
-  await ascFetch("/v1/appStoreVersionLocalizations", {
+  const res = await ascFetch<{ data: { id: string } }>("/v1/appStoreVersionLocalizations", {
     method: "POST",
     body: JSON.stringify({
       data: {
@@ -59,6 +59,7 @@ export async function createVersionLocalization(
       },
     }),
   });
+  return res.data.id;
 }
 
 export async function deleteVersionLocalization(
@@ -95,13 +96,13 @@ export async function createAppInfoLocalization(
   appInfoId: string,
   locale: string,
   attributes: Record<string, unknown>,
-): Promise<void> {
+): Promise<string> {
   // Strip empty strings – ASC rejects them on create
   const cleaned: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(attributes)) {
     if (v !== "") cleaned[k] = v;
   }
-  await ascFetch("/v1/appInfoLocalizations", {
+  const res = await ascFetch<{ data: { id: string } }>("/v1/appInfoLocalizations", {
     method: "POST",
     body: JSON.stringify({
       data: {
@@ -115,6 +116,7 @@ export async function createAppInfoLocalization(
       },
     }),
   });
+  return res.data.id;
 }
 
 export async function deleteAppInfoLocalization(

@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SpinnerGap } from "@phosphor-icons/react";
+import { SpinnerGap, Copy, Check } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useApps } from "@/lib/apps-context";
 import { useFormDirty } from "@/lib/form-dirty-context";
@@ -21,9 +21,14 @@ import { useAppInfo, useAppInfoLocalizations } from "@/lib/hooks/use-app-info";
 import { pickAppInfo } from "@/lib/asc/app-info-utils";
 import type { AscAppInfoLocalization } from "@/lib/asc/app-info";
 import { localeName, sortLocales, FIELD_LIMITS } from "@/lib/asc/locale-names";
+import { CATEGORIES, categoryName } from "@/lib/asc/categories";
 import { CharCount } from "@/components/char-count";
 import { useSectionLocales } from "@/lib/section-locales-context";
 import { useRegisterHeaderLocale } from "@/lib/header-locale-context";
+
+const SORTED_CATEGORIES = Object.keys(CATEGORIES).sort((a, b) =>
+  CATEGORIES[a].localeCompare(CATEGORIES[b]),
+);
 
 type ContentRights = "DOES_NOT_USE_THIRD_PARTY_CONTENT" | "USES_THIRD_PARTY_CONTENT";
 
@@ -94,6 +99,16 @@ export default function AppDetailsPage() {
     (app?.contentRightsDeclaration as ContentRights) ?? "DOES_NOT_USE_THIRD_PARTY_CONTENT",
   );
 
+  const [primaryCategoryId, setPrimaryCategoryId] = useState("");
+  const [secondaryCategoryId, setSecondaryCategoryId] = useState("");
+  const primaryCategoryOriginalRef = useRef("");
+  const secondaryCategoryOriginalRef = useRef("");
+
+  const [notifUrl, setNotifUrl] = useState(app?.subscriptionStatusUrl ?? "");
+  const [notifSandboxUrl, setNotifSandboxUrl] = useState(app?.subscriptionStatusUrlForSandbox ?? "");
+  const notifUrlOriginalRef = useRef(app?.subscriptionStatusUrl ?? "");
+  const notifSandboxUrlOriginalRef = useRef(app?.subscriptionStatusUrlForSandbox ?? "");
+
   const current = localeData[selectedLocale] ?? emptyLocaleFields();
 
   const changeLocale = useCallback(
@@ -147,6 +162,28 @@ export default function AppDetailsPage() {
     }
   }, [app?.contentRightsDeclaration]);
 
+  // Sync notification URLs when app data loads
+  useEffect(() => {
+    const prod = app?.subscriptionStatusUrl ?? "";
+    const sandbox = app?.subscriptionStatusUrlForSandbox ?? "";
+    setNotifUrl(prod);
+    setNotifSandboxUrl(sandbox);
+    notifUrlOriginalRef.current = prod;
+    notifSandboxUrlOriginalRef.current = sandbox;
+  }, [app?.subscriptionStatusUrl, app?.subscriptionStatusUrlForSandbox]);
+
+  // Sync categories when appInfo loads
+  useEffect(() => {
+    if (appInfo) {
+      const primary = appInfo.primaryCategory?.id ?? "";
+      const secondary = appInfo.secondaryCategory?.id ?? "";
+      setPrimaryCategoryId(primary);
+      setSecondaryCategoryId(secondary);
+      primaryCategoryOriginalRef.current = primary;
+      secondaryCategoryOriginalRef.current = secondary;
+    }
+  }, [appInfo]);
+
   // Report locales to cross-section context
   useEffect(() => {
     reportLocales(locales);
@@ -173,6 +210,7 @@ export default function AppDetailsPage() {
       const promises: Promise<void>[] = [];
 
       // Save localizations
+      let locCreatedIds: Record<string, string> = {};
       promises.push(
         fetch(`/api/apps/${appId}/info/${appInfoId}/localizations`, {
           method: "PUT",
@@ -187,22 +225,59 @@ export default function AppDetailsPage() {
           if (data.errors?.length > 0) {
             toast.warning(`Saved with ${data.errors.length} error(s)`);
           }
+          locCreatedIds = data.createdIds ?? {};
         }),
       );
 
-      // Save content rights if changed
+      // Save app attributes if changed (content rights + notification URLs)
+      const appAttrs: Record<string, string | null> = {};
       if (contentRights !== contentRightsOriginalRef.current) {
+        appAttrs.contentRightsDeclaration = contentRights;
+      }
+      if (notifUrl !== notifUrlOriginalRef.current) {
+        appAttrs.subscriptionStatusUrl = notifUrl || null;
+      }
+      if (notifSandboxUrl !== notifSandboxUrlOriginalRef.current) {
+        appAttrs.subscriptionStatusUrlForSandbox = notifSandboxUrl || null;
+      }
+      if (Object.keys(appAttrs).length > 0) {
         promises.push(
           fetch(`/api/apps/${appId}/attributes`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contentRightsDeclaration: contentRights }),
+            body: JSON.stringify(appAttrs),
           }).then(async (res) => {
             if (!res.ok) {
               const data = await res.json().catch(() => ({}));
-              throw new Error(data.error ?? "Failed to save content rights");
+              throw new Error(data.error ?? "Failed to save app attributes");
             }
             contentRightsOriginalRef.current = contentRights;
+            notifUrlOriginalRef.current = notifUrl;
+            notifSandboxUrlOriginalRef.current = notifSandboxUrl;
+          }),
+        );
+      }
+
+      // Save categories if changed
+      if (
+        primaryCategoryId !== primaryCategoryOriginalRef.current ||
+        secondaryCategoryId !== secondaryCategoryOriginalRef.current
+      ) {
+        promises.push(
+          fetch(`/api/apps/${appId}/info/${appInfoId}/categories`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              primaryCategoryId: primaryCategoryId || null,
+              secondaryCategoryId: secondaryCategoryId || null,
+            }),
+          }).then(async (res) => {
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.error ?? "Failed to save categories");
+            }
+            primaryCategoryOriginalRef.current = primaryCategoryId;
+            secondaryCategoryOriginalRef.current = secondaryCategoryId;
           }),
         );
       }
@@ -215,18 +290,18 @@ export default function AppDetailsPage() {
         return;
       }
 
-      // Update original snapshot so subsequent saves diff correctly
+      // Update original snapshot with real IDs from created locales
       const ids: Record<string, string> = { ...originalLocaleIdsRef.current };
-      for (const locale of Object.keys(localeData)) {
-        if (!ids[locale]) ids[locale] = locale; // placeholder for newly created
+      for (const [locale, id] of Object.entries(locCreatedIds)) {
+        ids[locale] = id;
       }
       for (const locale of Object.keys(ids)) {
-        if (!localeData[locale]) delete ids[locale]; // removed locales
+        if (!localeData[locale]) delete ids[locale];
       }
       originalLocaleIdsRef.current = ids;
       setDirty(false);
     });
-  }, [appId, appInfoId, localeData, contentRights, registerSave, setDirty]);
+  }, [appId, appInfoId, localeData, contentRights, primaryCategoryId, secondaryCategoryId, notifUrl, notifSandboxUrl, registerSave, setDirty]);
 
   const updateField = useCallback(
     (field: keyof AppInfoLocaleFields, value: string) => {
@@ -241,9 +316,8 @@ export default function AppDetailsPage() {
 
   function handleAddLocale(locale: string) {
     setLocaleData((prev) => {
-      // Pre-fill name from primary locale (matches App Store Connect behaviour)
-      const primaryName = prev[primaryLocale]?.name ?? "";
-      const next = { ...prev, [locale]: { ...emptyLocaleFields(), name: primaryName } };
+      const base = prev[primaryLocale] ?? emptyLocaleFields();
+      const next = { ...prev, [locale]: { ...base } };
       setLocales(sortLocales(Object.keys(next), primaryLocale));
       return next;
     });
@@ -254,10 +328,10 @@ export default function AppDetailsPage() {
 
   function handleBulkAddLocales(codes: string[]) {
     setLocaleData((prev) => {
-      const primaryName = prev[primaryLocale]?.name ?? "";
+      const base = prev[primaryLocale] ?? emptyLocaleFields();
       const next = { ...prev };
       for (const code of codes) {
-        if (!next[code]) next[code] = { ...emptyLocaleFields(), name: primaryName };
+        if (!next[code]) next[code] = { ...base };
       }
       setLocales(sortLocales(Object.keys(next), primaryLocale));
       return next;
@@ -324,8 +398,6 @@ export default function AppDetailsPage() {
   }
 
   const ageRating = appInfo?.attributes.appStoreAgeRating;
-  const primaryCategoryId = appInfo?.primaryCategory?.id ?? "";
-  const secondaryCategoryId = appInfo?.secondaryCategory?.id ?? "";
 
   return (
     <div className="space-y-8">
@@ -333,41 +405,50 @@ export default function AppDetailsPage() {
       <section className="space-y-2">
         <h3 className="section-title">Identifiers</h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <ReadOnlyField label="Bundle ID" value={app.bundleId} mono />
-          <ReadOnlyField label="SKU" value={app.sku} mono />
+          <ReadOnlyField label="Bundle ID" value={app.bundleId} mono copyable />
+          <ReadOnlyField label="SKU" value={app.sku} mono copyable />
         </div>
       </section>
 
-      {/* Base language */}
-      <section className="space-y-2">
-        <h3 className="section-title">Base language</h3>
-        <Select defaultValue={app.primaryLocale}>
-          <SelectTrigger className="w-[280px] text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {localizations.map((loc) => (
-              <SelectItem
-                key={loc.attributes.locale}
-                value={loc.attributes.locale}
-              >
-                {localeName(loc.attributes.locale)}
-                <span className="ml-1.5 text-muted-foreground">
-                  {loc.attributes.locale}
-                </span>
-              </SelectItem>
-            ))}
-            {localizations.length === 0 && (
-              <SelectItem value={app.primaryLocale}>
-                {localeName(app.primaryLocale)}
-                <span className="ml-1.5 text-muted-foreground">
-                  {app.primaryLocale}
-                </span>
-              </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-      </section>
+      {/* Base language & App ID */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <section className="space-y-2">
+          <h3 className="section-title">Base language</h3>
+          <Select defaultValue={app.primaryLocale}>
+            <SelectTrigger className="w-[280px] text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {localizations.map((loc) => (
+                <SelectItem
+                  key={loc.attributes.locale}
+                  value={loc.attributes.locale}
+                >
+                  {localeName(loc.attributes.locale)}
+                  <span className="ml-1.5 text-muted-foreground">
+                    {loc.attributes.locale}
+                  </span>
+                </SelectItem>
+              ))}
+              {localizations.length === 0 && (
+                <SelectItem value={app.primaryLocale}>
+                  {localeName(app.primaryLocale)}
+                  <span className="ml-1.5 text-muted-foreground">
+                    {app.primaryLocale}
+                  </span>
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </section>
+        <section className="space-y-2">
+          <h3 className="section-title">App ID</h3>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium font-mono">{appId}</p>
+            <CopyButton value={appId} />
+          </div>
+        </section>
+      </div>
 
       {locales.length > 0 && (
         <>
@@ -445,13 +526,51 @@ export default function AppDetailsPage() {
             <label className="text-sm text-muted-foreground">
               Primary category
             </label>
-            <ReadOnlyField label="" value={primaryCategoryId || "Not set"} />
+            <Select
+              value={primaryCategoryId}
+              onValueChange={(value) => {
+                setPrimaryCategoryId(value);
+                if (value === secondaryCategoryId) setSecondaryCategoryId("");
+                setDirty(true);
+              }}
+            >
+              <SelectTrigger className="w-[280px] text-sm">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {SORTED_CATEGORIES.map((id) => (
+                  <SelectItem key={id} value={id}>
+                    {categoryName(id)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <label className="text-sm text-muted-foreground">
               Secondary category
             </label>
-            <ReadOnlyField label="" value={secondaryCategoryId || "None"} />
+            <Select
+              value={secondaryCategoryId || "NONE"}
+              onValueChange={(value) => {
+                setSecondaryCategoryId(value === "NONE" ? "" : value);
+                setDirty(true);
+              }}
+            >
+              <SelectTrigger className="w-[280px] text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NONE">None</SelectItem>
+                {SORTED_CATEGORIES.filter((id) => id !== primaryCategoryId).map(
+                  (id) => (
+                    <SelectItem key={id} value={id}>
+                      {categoryName(id)}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </section>
@@ -473,7 +592,7 @@ export default function AppDetailsPage() {
       </section>
 
       {/* Content rights */}
-      <section className="space-y-2 pb-8">
+      <section className="space-y-2">
         <h3 className="section-title">Content rights</h3>
         <RadioGroup
           value={contentRights}
@@ -496,7 +615,61 @@ export default function AppDetailsPage() {
           </div>
         </RadioGroup>
       </section>
+
+      {/* App Store server notifications */}
+      <section className="space-y-2 pb-8">
+        <h3 className="section-title">App Store server notifications</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">
+              Production URL
+            </label>
+            <Input
+              dir="ltr"
+              value={notifUrl}
+              onChange={(e) => {
+                setNotifUrl(e.target.value);
+                setDirty(true);
+              }}
+              placeholder="https://..."
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">
+              Sandbox URL
+            </label>
+            <Input
+              dir="ltr"
+              value={notifSandboxUrl}
+              onChange={(e) => {
+                setNotifSandboxUrl(e.target.value);
+                setDirty(true);
+              }}
+              placeholder="https://..."
+              className="text-sm"
+            />
+          </div>
+        </div>
+      </section>
     </div>
+  );
+}
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="text-muted-foreground hover:text-foreground transition-colors"
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
   );
 }
 
@@ -504,17 +677,22 @@ function ReadOnlyField({
   label,
   value,
   mono,
+  copyable,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  copyable?: boolean;
 }) {
   return (
     <div className="space-y-1">
       {label && <p className="text-sm text-muted-foreground">{label}</p>}
-      <p className={`text-sm font-medium ${mono ? "font-mono" : ""}`}>
-        {value}
-      </p>
+      <div className="flex items-center gap-1.5">
+        <p className={`text-sm font-medium ${mono ? "font-mono" : ""}`}>
+          {value}
+        </p>
+        {copyable && <CopyButton value={value} />}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { ascFetch } from "./client";
-import { cacheGet, cacheSet } from "@/lib/cache";
+import { cacheGet, cacheSet, cacheInvalidate } from "@/lib/cache";
 
 const APP_INFO_TTL = 60 * 60 * 1000; // 1 hour
 
@@ -76,7 +76,7 @@ export async function listAppInfos(
   const response = await ascFetch<AscAppInfosResponse>(
     `/v1/apps/${appId}/appInfos` +
       `?include=primaryCategory,secondaryCategory` +
-      `&fields[appInfos]=appStoreState,appStoreAgeRating,brazilAgeRating,brazilAgeRatingV2,kidsAgeBand,state` +
+      `&fields[appInfos]=appStoreState,appStoreAgeRating,brazilAgeRating,brazilAgeRatingV2,kidsAgeBand,state,primaryCategory,secondaryCategory` +
       `&fields[appCategories]=platforms,parent`,
   );
 
@@ -101,6 +101,35 @@ export async function listAppInfos(
 
   cacheSet(cacheKey, appInfos, APP_INFO_TTL);
   return appInfos;
+}
+
+export async function updateAppInfoCategories(
+  appInfoId: string,
+  appId: string,
+  primaryCategoryId: string | null,
+  secondaryCategoryId: string | null,
+): Promise<void> {
+  const relationships: Record<string, { data: { type: string; id: string } | null }> = {
+    primaryCategory: primaryCategoryId
+      ? { data: { type: "appCategories", id: primaryCategoryId } }
+      : { data: null },
+    secondaryCategory: secondaryCategoryId
+      ? { data: { type: "appCategories", id: secondaryCategoryId } }
+      : { data: null },
+  };
+
+  await ascFetch(`/v1/appInfos/${appInfoId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      data: {
+        type: "appInfos",
+        id: appInfoId,
+        relationships,
+      },
+    }),
+  });
+
+  cacheInvalidate(`appInfos:${appId}`);
 }
 
 export async function listAppInfoLocalizations(

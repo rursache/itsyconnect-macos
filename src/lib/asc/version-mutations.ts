@@ -45,6 +45,30 @@ export async function disablePhasedRelease(
   });
 }
 
+export async function createVersion(
+  appId: string,
+  versionString: string,
+  platform: string,
+): Promise<string> {
+  const res = await ascFetch<{ data: { id: string } }>("/v1/appStoreVersions", {
+    method: "POST",
+    body: JSON.stringify({
+      data: {
+        type: "appStoreVersions",
+        attributes: { versionString, platform },
+        relationships: {
+          app: {
+            data: { type: "apps", id: appId },
+          },
+        },
+      },
+    }),
+  });
+
+  cacheInvalidate(`versions:${appId}`);
+  return res.data.id;
+}
+
 export function invalidateVersionsCache(appId: string): void {
   cacheInvalidate(`versions:${appId}`);
 }
