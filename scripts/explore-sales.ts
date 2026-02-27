@@ -7,11 +7,17 @@ import * as jose from "jose";
 import * as fs from "fs";
 import * as zlib from "zlib";
 
-const KEY_PATH = "/Users/nick/Downloads/AuthKey_***.p8";
-const KEY_ID = "***";
-const ISSUER_ID = "***";
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required env var: ${name}`);
+  return value;
+}
+
+const KEY_PATH = requireEnv("ASC_KEY_PATH");
+const KEY_ID = requireEnv("ASC_KEY_ID");
+const ISSUER_ID = requireEnv("ASC_ISSUER_ID");
 const BASE = "https://api.appstoreconnect.apple.com";
-const VENDOR_NUMBER = "***";
+const VENDOR_NUMBER = requireEnv("ASC_VENDOR_NUMBER");
 
 async function makeToken(): Promise<string> {
   const keyPem = fs.readFileSync(KEY_PATH, "utf-8");
@@ -191,7 +197,8 @@ async function main() {
   console.log("\n\n########## APP PRICING / IAP ##########\n");
 
   // List IAPs
-  const iapUrl = `${BASE}/v1/apps/***/inAppPurchasesV2?limit=10`;
+  const APP_ID = requireEnv("ASC_APP_ID");
+  const iapUrl = `${BASE}/v1/apps/${APP_ID}/inAppPurchasesV2?limit=10`;
   console.log(`  GET ${iapUrl.replace(BASE, "")}`);
   const iapRes = await fetch(iapUrl, {
     headers: { Authorization: `Bearer ${token}` },
@@ -209,7 +216,7 @@ async function main() {
   }
 
   // List subscription groups
-  const subGroupUrl = `${BASE}/v1/apps/***/subscriptionGroups?limit=10`;
+  const subGroupUrl = `${BASE}/v1/apps/${APP_ID}/subscriptionGroups?limit=10`;
   console.log(`\n  GET ${subGroupUrl.replace(BASE, "")}`);
   const subGroupRes = await fetch(subGroupUrl, {
     headers: { Authorization: `Bearer ${token}` },

@@ -7,15 +7,21 @@ import * as jose from "jose";
 import * as fs from "fs";
 import * as zlib from "zlib";
 
-const KEY_PATH = "/Users/nick/Downloads/AuthKey_***.p8";
-const KEY_ID = "***";
-const ISSUER_ID = "***";
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required env var: ${name}`);
+  return value;
+}
+
+const KEY_PATH = requireEnv("ASC_KEY_PATH");
+const KEY_ID = requireEnv("ASC_KEY_ID");
+const ISSUER_ID = requireEnv("ASC_ISSUER_ID");
 const BASE = "https://api.appstoreconnect.apple.com";
-const APP_ID = "***";
+const APP_ID = requireEnv("ASC_APP_ID");
 
 // Use ONGOING request which has been running
-const ONGOING_REQUEST_ID = "***";
-const SNAPSHOT_REQUEST_ID = "***";
+const ONGOING_REQUEST_ID = requireEnv("ASC_ANALYTICS_ONGOING_REQUEST_ID");
+const SNAPSHOT_REQUEST_ID = requireEnv("ASC_ANALYTICS_SNAPSHOT_REQUEST_ID");
 
 async function makeToken(): Promise<string> {
   const keyPem = fs.readFileSync(KEY_PATH, "utf-8");
