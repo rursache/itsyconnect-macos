@@ -112,7 +112,7 @@ export default function StoreListingPage() {
   };
 
   const { report: reportChecklist } = useSubmissionChecklist();
-  const { setDirty, registerSave, setValidationErrors } = useFormDirty();
+  const { setDirty, registerSave, registerDiscard, setValidationErrors } = useFormDirty();
 
   const bulkFields: BulkField[] = [
     { key: "description", label: "Description", charLimit: FIELD_LIMITS.description },
@@ -349,6 +349,28 @@ export default function StoreListingPage() {
       setDirty(false);
     });
   }, [appId, versionId, localeData, readOnly, releaseType, scheduledDate, phasedRelease, selectedVersion, registerSave, setDirty, updateVersion]);
+
+  // Register discard handler for the header Discard button
+  useEffect(() => {
+    registerDiscard(() => {
+      setLocaleData(buildLocaleData(localizations));
+      if (selectedVersion) {
+        const { releaseType: rt, earliestReleaseDate } = selectedVersion.attributes;
+        if (rt === "SCHEDULED" || (rt === "AFTER_APPROVAL" && earliestReleaseDate)) {
+          setReleaseType("after-date");
+          if (earliestReleaseDate) setScheduledDate(new Date(earliestReleaseDate));
+          else setScheduledDate(undefined);
+        } else if (rt === "AFTER_APPROVAL") {
+          setReleaseType("automatically");
+          setScheduledDate(undefined);
+        } else {
+          setReleaseType("manually");
+          setScheduledDate(undefined);
+        }
+        setPhasedRelease(selectedVersion.phasedRelease != null);
+      }
+    });
+  }, [localizations, selectedVersion, registerDiscard]);
 
   function updateField(field: keyof LocaleFields, value: string) {
     setLocaleData((prev) => ({

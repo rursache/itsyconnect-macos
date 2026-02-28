@@ -126,7 +126,7 @@ export default function AppDetailsPage() {
     appName: app?.name,
   };
 
-  const { setDirty, registerSave, setValidationErrors } = useFormDirty();
+  const { setDirty, registerSave, registerDiscard, setValidationErrors } = useFormDirty();
 
   const bulkFields: BulkField[] = [
     { key: "name", label: "Name", charLimit: FIELD_LIMITS.name },
@@ -323,6 +323,18 @@ export default function AppDetailsPage() {
       setDirty(false);
     });
   }, [appId, appInfoId, localeData, contentRights, primaryCategoryId, secondaryCategoryId, notifUrl, notifSandboxUrl, primaryLocale, app?.name, updateApp, registerSave, setDirty]);
+
+  // Register discard handler for the header Discard button
+  useEffect(() => {
+    registerDiscard(() => {
+      setLocaleData(buildLocaleData(localizations));
+      setContentRights(contentRightsOriginalRef.current);
+      setPrimaryCategoryId(primaryCategoryOriginalRef.current);
+      setSecondaryCategoryId(secondaryCategoryOriginalRef.current);
+      setNotifUrl(notifUrlOriginalRef.current);
+      setNotifSandboxUrl(notifSandboxUrlOriginalRef.current);
+    });
+  }, [localizations, registerDiscard]);
 
   const updateField = useCallback(
     (field: keyof AppInfoLocaleFields, value: string) => {

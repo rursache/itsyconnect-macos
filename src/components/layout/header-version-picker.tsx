@@ -319,7 +319,7 @@ export function HeaderVersionActions() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { versions, refresh } = useVersions();
-  const { isDirty, isSaving, onSave, guardNavigation } = useFormDirty();
+  const { isDirty, isSaving, onSave, onDiscard, guardNavigation } = useFormDirty();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [versionString, setVersionString] = useState("");
@@ -400,6 +400,16 @@ export function HeaderVersionActions() {
         >
           <Plus size={14} />
           New version
+        </Button>
+      )}
+      {showSave && isDirty && !isSaving && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 text-sm"
+          onClick={onDiscard}
+        >
+          Discard
         </Button>
       )}
       {showSave && (!readOnly || isDirty) && (

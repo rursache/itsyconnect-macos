@@ -27,6 +27,9 @@ interface FormDirtyContextValue {
   /** Pages register a save handler; the header button calls it. */
   onSave: () => void;
   registerSave: (handler: () => void | Promise<void>) => void;
+  /** Pages register a discard handler; the header button calls it. */
+  onDiscard: () => void;
+  registerDiscard: (handler: () => void) => void;
   /** Guard a navigation action – shows a confirmation dialog if dirty. */
   guardNavigation: (onProceed: () => void) => void;
   /** Pages call this with current validation errors (empty array = valid). */
@@ -40,6 +43,8 @@ const FormDirtyContext = createContext<FormDirtyContextValue>({
   setDirty: () => {},
   onSave: () => {},
   registerSave: () => {},
+  onDiscard: () => {},
+  registerDiscard: () => {},
   guardNavigation: (onProceed) => onProceed(),
   setValidationErrors: () => {},
   hasValidationErrors: false,
@@ -51,6 +56,7 @@ export function FormDirtyProvider({ children }: { children: React.ReactNode }) {
   const [guardOpen, setGuardOpen] = useState(false);
   const pendingRef = useRef<(() => void) | null>(null);
   const saveRef = useRef<(() => void | Promise<void>) | null>(null);
+  const discardRef = useRef<(() => void) | null>(null);
   const validationErrorsRef = useRef<string[]>([]);
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
 
@@ -60,6 +66,16 @@ export function FormDirtyProvider({ children }: { children: React.ReactNode }) {
 
   const registerSave = useCallback((handler: () => void | Promise<void>) => {
     saveRef.current = handler;
+  }, []);
+
+  const registerDiscard = useCallback((handler: () => void) => {
+    discardRef.current = handler;
+  }, []);
+
+  const onDiscard = useCallback(() => {
+    if (!discardRef.current) return;
+    discardRef.current();
+    setIsDirty(false);
   }, []);
 
   const setValidationErrors = useCallback((errors: string[]) => {
@@ -132,7 +148,7 @@ export function FormDirtyProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <FormDirtyContext.Provider
-      value={{ isDirty, isSaving, setDirty, onSave, registerSave, guardNavigation, setValidationErrors, hasValidationErrors }}
+      value={{ isDirty, isSaving, setDirty, onSave, registerSave, onDiscard, registerDiscard, guardNavigation, setValidationErrors, hasValidationErrors }}
     >
       {children}
       <AlertDialog open={guardOpen} onOpenChange={(open) => !open && handleCancel()}>

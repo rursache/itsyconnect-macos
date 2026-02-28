@@ -31,7 +31,7 @@ export default function AppReviewPage() {
   const reviewDetail = selectedVersion?.reviewDetail?.attributes;
   const versionId = selectedVersion?.id ?? "";
 
-  const { setDirty, registerSave, setValidationErrors } = useFormDirty();
+  const { setDirty, registerSave, registerDiscard, setValidationErrors } = useFormDirty();
   const [notes, setNotes] = useState("");
   const [signInRequired, setSignInRequired] = useState(false);
   const [demoName, setDemoName] = useState("");
@@ -124,6 +124,20 @@ export default function AppReviewPage() {
     appId, selectedVersion, notes, signInRequired, demoName, demoPassword,
     firstName, lastName, phone, email, registerSave, setDirty, updateVersion,
   ]);
+
+  // Register discard handler for the header Discard button
+  useEffect(() => {
+    registerDiscard(() => {
+      setNotes(reviewDetail?.notes ?? "");
+      setSignInRequired(reviewDetail?.demoAccountRequired ?? false);
+      setDemoName(reviewDetail?.demoAccountName ?? "");
+      setDemoPassword(reviewDetail?.demoAccountPassword ?? "");
+      setFirstName(reviewDetail?.contactFirstName ?? "");
+      setLastName(reviewDetail?.contactLastName ?? "");
+      setPhone(reviewDetail?.contactPhone ?? "");
+      setEmail(reviewDetail?.contactEmail ?? "");
+    });
+  }, [reviewDetail, registerDiscard]);
 
   if (!app) {
     return (
