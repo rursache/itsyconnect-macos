@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generateText } from "ai";
-import { getLanguageModel } from "@/lib/ai/provider-factory";
+import { createLanguageModel } from "@/lib/ai/provider-factory";
+import { getAISettings } from "@/lib/ai/settings";
+import { isReasoningModel } from "@/lib/ai-providers";
 import {
   buildTranslatePrompt,
   buildImprovePrompt,
@@ -96,8 +98,12 @@ export async function POST(request: Request) {
   }
 
   let model;
+  let reasoning = false;
   try {
-    model = await getLanguageModel();
+    const settings = await getAISettings();
+    if (!settings) throw new Error("AI not configured");
+    model = createLanguageModel(settings.provider, settings.modelId, settings.apiKey);
+    reasoning = isReasoningModel(settings.provider, settings.modelId);
   } catch {
     return NextResponse.json(
       { error: "ai_not_configured" },
@@ -175,7 +181,7 @@ export async function POST(request: Request) {
       model,
       system: "You are a text-processing tool. Output ONLY the final result as plain text with no preamble, explanation, or commentary. Never use markdown, HTML, or any formatting syntax. Never refuse or ask questions.",
       prompt,
-      temperature: needsVariety ? 0.9 : 0,
+      ...(reasoning ? {} : { temperature: needsVariety ? 0.9 : 0 }),
     });
 
     // Detect conversational responses that slipped through the prompt constraints

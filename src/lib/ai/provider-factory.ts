@@ -69,7 +69,7 @@ export async function validateApiKey(
     await generateText({
       model,
       prompt: "Say hi",
-      maxOutputTokens: 1,
+      maxOutputTokens: 16,
     });
     return null;
   } catch (err) {

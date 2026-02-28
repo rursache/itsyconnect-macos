@@ -12,7 +12,6 @@ export async function GET() {
       id: ascCredentials.id,
       issuerId: ascCredentials.issuerId,
       keyId: ascCredentials.keyId,
-      vendorId: ascCredentials.vendorId,
       isActive: ascCredentials.isActive,
       createdAt: ascCredentials.createdAt,
     })
@@ -26,7 +25,6 @@ export async function GET() {
 const createSchema = z.object({
   issuerId: z.string().min(1).trim(),
   keyId: z.string().min(1).trim(),
-  vendorId: z.string().trim().optional(),
   privateKey: z.string().min(1),
 });
 
@@ -44,7 +42,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { issuerId, keyId, vendorId, privateKey } = parsed.data;
+  const { issuerId, keyId, privateKey } = parsed.data;
 
   // Deactivate existing credentials
   db.update(ascCredentials)
@@ -59,7 +57,6 @@ export async function POST(request: Request) {
       id: ulid(),
       issuerId,
       keyId,
-      vendorId: vendorId || null,
       encryptedPrivateKey: encrypted.ciphertext,
       iv: encrypted.iv,
       authTag: encrypted.authTag,
@@ -72,42 +69,6 @@ export async function POST(request: Request) {
   startSyncWorker();
 
   return NextResponse.json({ ok: true }, { status: 201 });
-}
-
-const patchSchema = z.object({
-  vendorId: z.string().trim().optional(),
-});
-
-export async function PATCH(request: Request) {
-  const body = await request.json().catch(() => null);
-  if (!body) {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const parsed = patchSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Validation failed", details: parsed.error.issues },
-      { status: 400 },
-    );
-  }
-
-  const cred = db
-    .select({ id: ascCredentials.id })
-    .from(ascCredentials)
-    .where(eq(ascCredentials.isActive, true))
-    .get();
-
-  if (!cred) {
-    return NextResponse.json({ error: "No active credentials" }, { status: 404 });
-  }
-
-  db.update(ascCredentials)
-    .set({ vendorId: parsed.data.vendorId || null })
-    .where(eq(ascCredentials.id, cred.id))
-    .run();
-
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request: Request) {

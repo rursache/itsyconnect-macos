@@ -14,7 +14,6 @@ Mock data files in `src/lib/`:
 | File | Covers | Status |
 |---|---|---|
 | `mock-data.ts` | Apps, versions, builds, localizations | Restored – not wired to any pages (pages use real ASC API) |
-| `mock-sales.ts` | Revenue, territories, products, transactions | Active – sales pages import directly |
 | `mock-analytics.ts` | Downloads, sessions, engagement, referrers, crashes | Active – analytics pages import directly |
 | `mock-testflight.ts` | Builds, groups, testers, feedback, review detail | Active – TestFlight pages import directly |
 
@@ -52,7 +51,7 @@ This keeps conditional logic out of client components entirely. The hooks, conte
 - `/api/apps/[appId]/versions` – `MOCK_VERSIONS` filtered by app
 - `/api/apps/[appId]/versions/[versionId]/localizations` – `MOCK_LOCALIZATIONS` filtered by version
 - `/api/apps/[appId]/versions/[versionId]/builds` – `MOCK_BUILDS` filtered by version
-- Sales, analytics, TestFlight routes – already use mock data, just need to keep doing so
+- Analytics, TestFlight routes – already use mock data, just need to keep doing so
 
 ### UI indicator
 
@@ -72,7 +71,7 @@ This doesn't need to be built all at once. The minimal steps for App Store submi
 4. Add the demo mode banner
 5. Sales/analytics/TestFlight already show mock data, so no changes needed there
 
-Later, as sales/analytics/TestFlight get wired to real ASC data, their API routes should also check the demo flag and return mock data when active.
+Later, as analytics/TestFlight get wired to real ASC data, their API routes should also check the demo flag and return mock data when active.
 
 ## Rules
 

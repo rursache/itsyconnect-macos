@@ -1,6 +1,8 @@
 export interface AIModel {
   id: string;
   name: string;
+  /** Reasoning models don't support sampling parameters like temperature. */
+  reasoning?: boolean;
 }
 
 export interface AIProvider {
@@ -26,9 +28,9 @@ export const AI_PROVIDERS: AIProvider[] = [
     name: "OpenAI",
     envVar: "OPENAI_API_KEY",
     models: [
-      { id: "gpt-5.2", name: "GPT-5.2" },
-      { id: "gpt-5", name: "GPT-5" },
-      { id: "gpt-5-mini", name: "GPT-5 Mini" },
+      { id: "gpt-5.2", name: "GPT-5.2", reasoning: true },
+      { id: "gpt-5", name: "GPT-5", reasoning: true },
+      { id: "gpt-5-mini", name: "GPT-5 Mini", reasoning: true },
     ],
   },
   {
@@ -68,7 +70,14 @@ export const AI_PROVIDERS: AIProvider[] = [
     envVar: "DEEPSEEK_API_KEY",
     models: [
       { id: "deepseek-chat", name: "DeepSeek Chat" },
-      { id: "deepseek-reasoner", name: "DeepSeek Reasoner" },
+      { id: "deepseek-reasoner", name: "DeepSeek Reasoner", reasoning: true },
     ],
   },
 ];
+
+/** Check whether a provider+model combination is a reasoning model. */
+export function isReasoningModel(providerId: string, modelId: string): boolean {
+  const provider = AI_PROVIDERS.find((p) => p.id === providerId);
+  const model = provider?.models.find((m) => m.id === modelId);
+  return model?.reasoning === true;
+}

@@ -237,7 +237,7 @@ export default function AppOverviewPage() {
       ) : pending ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Initial update in progress. Insights will be available shortly.
+            Fetching historical data. Insights will be available shortly.
           </CardContent>
         </Card>
       ) : analytics ? (

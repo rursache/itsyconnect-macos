@@ -13,7 +13,6 @@ CREATE TABLE `asc_credentials` (
 	`id` text PRIMARY KEY NOT NULL,
 	`issuer_id` text NOT NULL,
 	`key_id` text NOT NULL,
-	`vendor_id` text,
 	`encrypted_private_key` text NOT NULL,
 	`iv` text NOT NULL,
 	`auth_tag` text NOT NULL,

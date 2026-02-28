@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { listCustomerReviews, createReviewResponse, updateReviewResponse, deleteReviewResponse, invalidateReviewsCache } from "@/lib/asc/reviews";
+import { listCustomerReviews, createReviewResponse, deleteReviewResponse, invalidateReviewsCache } from "@/lib/asc/reviews";
 import { hasCredentials } from "@/lib/asc/client";
 import { cacheGetMeta } from "@/lib/cache";
 import { getMockCustomerReviews } from "@/lib/mock-reviews";
@@ -49,6 +49,7 @@ const replySchema = z.object({
 
 const updateSchema = z.object({
   action: z.literal("update"),
+  reviewId: z.string().min(1),
   responseId: z.string().min(1),
   responseBody: z.string().min(1).max(MAX_RESPONSE_LENGTH),
 });
@@ -94,12 +95,14 @@ export async function POST(
     }
 
     if (parsed.data.action === "update") {
-      await updateReviewResponse(
-        parsed.data.responseId,
+      // ASC API doesn't support PATCH on customerReviewResponses – delete and re-create
+      await deleteReviewResponse(parsed.data.responseId);
+      const result = await createReviewResponse(
+        parsed.data.reviewId,
         parsed.data.responseBody,
       );
       invalidateReviewsCache(appId);
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, responseId: result.id });
     }
 
     // delete

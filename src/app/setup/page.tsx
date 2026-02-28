@@ -20,7 +20,6 @@ import {
   Lock,
   MagicWand,
   Package,
-  ChartLine,
   XCircle,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
@@ -28,7 +27,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { AI_PROVIDERS } from "@/lib/ai-providers";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const WIZARD_STEPS = 3;
+const WIZARD_STEPS = 2;
 
 export default function SetupPage() {
   const router = useRouter();
@@ -65,10 +64,7 @@ export default function SetupPage() {
   >("idle");
   const [testError, setTestError] = useState("");
 
-  // Step 2 – Vendor ID
-  const [vendorId, setVendorId] = useState("");
-
-  // Step 3 – AI
+  // Step 2 – AI
   const [providerId, setProviderId] = useState("anthropic");
   const [modelId, setModelId] = useState("claude-sonnet-4-6");
   const [apiKey, setApiKey] = useState("");
@@ -182,9 +178,6 @@ export default function SetupPage() {
         body.issuerId = issuerId.trim();
         body.keyId = keyId.trim();
         body.privateKey = privateKey;
-        if (vendorId.trim()) {
-          body.vendorId = vendorId.trim();
-        }
       }
 
       // Include AI settings if provided
@@ -240,22 +233,18 @@ export default function SetupPage() {
           <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             {step === 0 && <Package size={32} weight="fill" />}
             {step === 1 && <AppStoreLogoIcon size={32} weight="fill" />}
-            {step === 2 && <ChartLine size={32} weight="fill" />}
-            {step === 3 && <MagicWand size={32} weight="fill" />}
+            {step === 2 && <MagicWand size={32} weight="fill" />}
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
             {step === 0 && "Welcome to Itsyconnect"}
             {step === 1 && "App Store Connect"}
-            {step === 2 && "Sales and trends"}
-            {step === 3 && "AI assistant"}
+            {step === 2 && "AI assistant"}
           </h1>
           <p className="text-sm text-muted-foreground text-center">
             {step === 0 && "Better App Store Connect"}
             {step === 1 &&
               "Set up to manage apps, versions, and metadata."}
             {step === 2 &&
-              "Required for sales and financial reports. You can add it later in settings."}
-            {step === 3 &&
               "Add an API key to auto-translate app metadata, generate keywords, and improve descriptions."}
           </p>
         </div>
@@ -402,45 +391,8 @@ export default function SetupPage() {
           </div>
         )}
 
-        {/* Step 2 – Vendor ID */}
+        {/* Step 2 – AI */}
         {step === 2 && (
-          <div className="space-y-4">
-            <div className="space-y-2 rounded-lg bg-muted/50 px-3 py-2.5">
-              <div className="flex items-start gap-2">
-                <Info size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">
-                  Go to{" "}
-                  <a
-                    href="https://appstoreconnect.apple.com/itc/payments_and_financial_reports"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline-offset-4 hover:underline"
-                  >
-                    App Store Connect &rarr; Payments and financial reports
-                  </a>
-                  {" "}&ndash; the Vendor ID is the number shown in the top-left corner of the page.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">
-                Vendor ID{" "}
-                <span className="text-xs text-muted-foreground/60">(optional)</span>
-              </label>
-              <Input
-                value={vendorId}
-                onChange={(e) => setVendorId(e.target.value)}
-                placeholder="XXXXXXXX"
-                className="font-mono text-sm"
-                autoFocus
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 3 – AI */}
-        {step === 3 && (
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm text-muted-foreground">Provider</label>

@@ -237,6 +237,10 @@ Review attributes:
 | `createdDate` | ISO 8601 |
 | `territory` | `"USA"`, `"NLD"`, `"FRA"` (ISO 3166-1 alpha-3) |
 
+#### Customer review responses
+
+`customerReviewResponses` only supports CREATE, DELETE, and GET – **no PATCH/UPDATE**. To edit a reply: delete the old response, then create a new one.
+
 ### In-app purchases
 
 ```

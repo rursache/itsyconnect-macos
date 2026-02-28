@@ -28,7 +28,6 @@ interface Credential {
   id: string;
   issuerId: string;
   keyId: string;
-  vendorId: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -41,9 +40,6 @@ export default function SettingsPage() {
   const [testStatus, setTestStatus] = useState<
     "idle" | "testing" | "ok" | "error"
   >("idle");
-  const [editingVendorId, setEditingVendorId] = useState(false);
-  const [vendorIdValue, setVendorIdValue] = useState("");
-  const [savingVendorId, setSavingVendorId] = useState(false);
 
   const fetchCredential = useCallback(async () => {
     const res = await fetch("/api/settings/credentials");
@@ -73,34 +69,6 @@ export default function SettingsPage() {
     } catch {
       setTestStatus("error");
     }
-  }
-
-  function startEditVendorId() {
-    setVendorIdValue(credential?.vendorId ?? "");
-    setEditingVendorId(true);
-  }
-
-  async function saveVendorId() {
-    setSavingVendorId(true);
-    try {
-      const res = await fetch("/api/settings/credentials", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendorId: vendorIdValue.trim() || undefined }),
-      });
-      if (res.ok) {
-        setCredential((prev) =>
-          prev ? { ...prev, vendorId: vendorIdValue.trim() || null } : prev,
-        );
-        setEditingVendorId(false);
-        toast.success("Vendor ID saved");
-      } else {
-        toast.error("Failed to save");
-      }
-    } catch {
-      toast.error("Network error");
-    }
-    setSavingVendorId(false);
   }
 
   async function handleDelete() {
@@ -135,46 +103,6 @@ export default function SettingsPage() {
           <section className="space-y-2">
             <h3 className="section-title">Key ID</h3>
             <p className="text-sm font-mono">{credential.keyId}</p>
-          </section>
-
-          <section className="space-y-2">
-            <h3 className="section-title">Vendor ID</h3>
-            {editingVendorId ? (
-              <div className="flex items-center gap-2 max-w-xs">
-                <Input
-                  value={vendorIdValue}
-                  onChange={(e) => setVendorIdValue(e.target.value)}
-                  placeholder="XXXXXXXX"
-                  className="font-mono text-sm"
-                  autoFocus
-                />
-                <Button size="sm" onClick={saveVendorId} disabled={savingVendorId}>
-                  {savingVendorId ? <Spinner className="size-3" /> : "Save"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setEditingVendorId(false)}
-                  disabled={savingVendorId}
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-mono">
-                  {credential.vendorId || <span className="text-muted-foreground font-sans">Not set</span>}
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground text-xs h-auto py-0.5 px-1.5"
-                  onClick={startEditVendorId}
-                >
-                  {credential.vendorId ? "Edit" : "Set"}
-                </Button>
-              </div>
-            )}
           </section>
 
           <section className="space-y-2">
@@ -259,7 +187,6 @@ function CredentialForm({
 }) {
   const [issuerId, setIssuerId] = useState("");
   const [keyId, setKeyId] = useState("");
-  const [vendorId, setVendorId] = useState("");
   const [keyIdFromFile, setKeyIdFromFile] = useState(false);
   const [privateKey, setPrivateKey] = useState("");
   const [keyError, setKeyError] = useState("");
@@ -309,7 +236,7 @@ function CredentialForm({
       const res = await fetch("/api/settings/credentials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issuerId, keyId, vendorId: vendorId.trim() || undefined, privateKey }),
+        body: JSON.stringify({ issuerId, keyId, privateKey }),
       });
 
       if (res.ok) {
@@ -406,22 +333,6 @@ function CredentialForm({
           />
         </section>
       )}
-
-      <section className="space-y-2">
-        <h3 className="section-title">
-          Vendor ID{" "}
-          <span className="text-xs font-normal text-muted-foreground/60">(optional)</span>
-        </h3>
-        <Input
-          value={vendorId}
-          onChange={(e) => setVendorId(e.target.value)}
-          placeholder="XXXXXXXX"
-          className="max-w-md font-mono text-sm"
-        />
-        <p className="text-xs text-muted-foreground">
-          Required for sales and financial reports.
-        </p>
-      </section>
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={saving || !canSave}>

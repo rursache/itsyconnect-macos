@@ -12,8 +12,6 @@ const setupSchema = z.object({
   issuerId: z.string().min(1, "Issuer ID is required").trim(),
   keyId: z.string().min(1, "Key ID is required").trim(),
   privateKey: z.string().min(1, "Private key is required"),
-  vendorId: z.string().trim().optional(),
-
   // AI settings – optional
   aiProvider: z.string().optional(),
   aiModelId: z.string().optional(),
@@ -75,7 +73,6 @@ export async function POST(request: Request) {
       id: ulid(),
       issuerId: data.issuerId,
       keyId: data.keyId,
-      vendorId: data.vendorId || null,
       encryptedPrivateKey: encrypted.ciphertext,
       iv: encrypted.iv,
       authTag: encrypted.authTag,

@@ -125,24 +125,6 @@ export async function createReviewResponse(
   return { id: result.data.id };
 }
 
-export async function updateReviewResponse(
-  responseId: string,
-  responseBody: string,
-): Promise<void> {
-  await ascFetch(`/v1/customerReviewResponses/${responseId}`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      data: {
-        type: "customerReviewResponses",
-        id: responseId,
-        attributes: { responseBody },
-      },
-    }),
-  });
-
-  cacheInvalidate(`reviews:`);
-}
-
 export async function deleteReviewResponse(responseId: string): Promise<void> {
   await ascFetch(`/v1/customerReviewResponses/${responseId}`, {
     method: "DELETE",

@@ -7,7 +7,6 @@ export const ascCredentials = sqliteTable("asc_credentials", {
   id: text("id").primaryKey().$defaultFn(ulid),
   issuerId: text("issuer_id").notNull(),
   keyId: text("key_id").notNull(),
-  vendorId: text("vendor_id"),
   encryptedPrivateKey: text("encrypted_private_key").notNull(),
   iv: text("iv").notNull(),
   authTag: text("auth_tag").notNull(),

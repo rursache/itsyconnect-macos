@@ -10,7 +10,6 @@ import {
   Stamp,
   ChatsCircle,
   ChartLineUp,
-  CurrencyDollar,
   Info,
   Truck,
   UsersThree,
@@ -55,7 +54,6 @@ function getNavGroups(appId: string): NavGroup[] {
       items: [
         { title: "Reviews", href: `${base}/reviews`, icon: ChatsCircle },
         { title: "Analytics", href: `${base}/analytics`, icon: ChartLineUp },
-        { title: "Sales", href: `${base}/sales`, icon: CurrencyDollar },
       ],
     },
     {

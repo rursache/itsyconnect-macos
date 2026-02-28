@@ -414,6 +414,7 @@ export default function ReviewsPage() {
           isEdit
             ? {
                 action: "update",
+                reviewId: replyTarget.id,
                 responseId: editingResponseId,
                 responseBody: replyBody.trim(),
               }
@@ -439,7 +440,7 @@ export default function ReviewsPage() {
             ? {
                 ...r,
                 response: {
-                  id: isEdit ? editingResponseId! : (data.responseId ?? "pending"),
+                  id: data.responseId ?? "pending",
                   responseBody: replyBody.trim(),
                   lastModifiedDate: new Date().toISOString(),
                   state: "PENDING_PUBLISH" as const,
@@ -956,6 +957,7 @@ export default function ReviewsPage() {
                   </span>
                 </div>
                 <p className="text-sm font-medium">{replyTarget.title}</p>
+                <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">{replyTarget.body}</p>
               </div>
             )}
             <Textarea
