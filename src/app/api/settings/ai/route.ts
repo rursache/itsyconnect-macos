@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { aiSettings } from "@/db/schema";
 import { encrypt } from "@/lib/encryption";
 import { ulid } from "@/lib/ulid";
-import { sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 export async function GET() {
   const settings = db
@@ -12,10 +12,8 @@ export async function GET() {
       id: aiSettings.id,
       provider: aiSettings.provider,
       modelId: aiSettings.modelId,
-      updatedAt: aiSettings.updatedAt,
     })
     .from(aiSettings)
-    .orderBy(sql`${aiSettings.updatedAt} DESC`)
     .get();
 
   return NextResponse.json({
@@ -47,10 +45,9 @@ export async function PUT(request: Request) {
 
   const { provider, modelId, apiKey } = parsed.data;
 
-  // Delete existing settings
-  db.delete(aiSettings).run();
-
   if (apiKey) {
+    // New key: replace everything
+    db.delete(aiSettings).run();
     const encrypted = encrypt(apiKey);
     db.insert(aiSettings)
       .values({
@@ -63,7 +60,25 @@ export async function PUT(request: Request) {
         encryptedDek: encrypted.encryptedDek,
       })
       .run();
+  } else {
+    // No key: update provider/model only if settings exist
+    const existing = db.select({ id: aiSettings.id }).from(aiSettings).get();
+    if (!existing) {
+      return NextResponse.json(
+        { error: "API key is required for initial setup" },
+        { status: 400 },
+      );
+    }
+    db.update(aiSettings)
+      .set({ provider, modelId })
+      .where(eq(aiSettings.id, existing.id))
+      .run();
   }
 
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE() {
+  db.delete(aiSettings).run();
   return NextResponse.json({ ok: true });
 }

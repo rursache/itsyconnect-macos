@@ -239,7 +239,7 @@ export function MagicWandButton({
             {translating ? <Spinner className="size-3.5" /> : <MagicWand size={14} />}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="shadow-none">
+        <DropdownMenuContent align="end">
           {hasKeywordActions && (
             <>
               <DropdownMenuItem onSelect={handleGenerateKeywords}>
@@ -284,7 +284,9 @@ export function MagicWandButton({
                 }}
                 disabled={!hasBaseValue}
               >
-                Translate from {localeName(baseLocale)} to all languages…
+                {isBaseLocale
+                  ? "Translate to all languages…"
+                  : `Translate from ${localeName(baseLocale)} to all languages…`}
               </DropdownMenuItem>
             </>
           )}

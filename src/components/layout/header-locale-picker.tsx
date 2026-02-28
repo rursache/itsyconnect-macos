@@ -89,7 +89,7 @@ export function HeaderLocalePicker() {
                 <MagicWand size={14} />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="shadow-none">
+            <DropdownMenuContent align="end">
               {/* Single-locale items (only when non-base locale selected) */}
               {!isBaseLocale && config.onBulkTranslate && (
                 <DropdownMenuItem
@@ -114,14 +114,18 @@ export function HeaderLocalePicker() {
                 <DropdownMenuItem
                   onSelect={() => requireAI(() => configRef.current?.onBulkTranslateAll?.())}
                 >
-                  Translate all fields from {baseLabel} to all languages…
+                  {isBaseLocale
+                    ? "Translate all fields to all languages…"
+                    : `Translate all fields from ${baseLabel} to all languages…`}
                 </DropdownMenuItem>
               )}
               {config.onBulkCopyAll && (
                 <DropdownMenuItem
                   onSelect={() => configRef.current?.onBulkCopyAll?.()}
                 >
-                  Copy all fields from {baseLabel} to all languages…
+                  {isBaseLocale
+                    ? "Copy all fields to all languages…"
+                    : `Copy all fields from ${baseLabel} to all languages…`}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
