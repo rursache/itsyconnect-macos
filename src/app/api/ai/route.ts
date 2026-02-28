@@ -14,6 +14,20 @@ import {
   buildFillKeywordGapsPrompt,
 } from "@/lib/ai/prompts";
 
+/** Provider-specific options to control reasoning effort for reasoning models. */
+function reasoningOptions(
+  providerId: string,
+  needsDeepThinking: boolean,
+): Record<string, Record<string, string>> {
+  const effort = needsDeepThinking ? "medium" : "low";
+  switch (providerId) {
+    case "openai":
+      return { openai: { reasoningEffort: effort } };
+    default:
+      return {};
+  }
+}
+
 /** Truncate text to a character limit without breaking mid-word or mid-keyword. */
 function truncateToLimit(text: string, limit: number, field: string): string {
   if (text.length <= limit) return text;
@@ -99,11 +113,13 @@ export async function POST(request: Request) {
 
   let model;
   let reasoning = false;
+  let providerId = "";
   try {
     const settings = await getAISettings();
     if (!settings) throw new Error("AI not configured");
     model = createLanguageModel(settings.provider, settings.modelId, settings.apiKey);
     reasoning = isReasoningModel(settings.provider, settings.modelId);
+    providerId = settings.provider;
   } catch {
     return NextResponse.json(
       { error: "ai_not_configured" },
@@ -177,11 +193,14 @@ export async function POST(request: Request) {
 
   try {
     const needsVariety = action === "draft-reply" || action === "draft-appeal";
+    const needsDeepThinking = action === "improve" || action === "draft-reply" || action === "draft-appeal";
+
     const { text: result } = await generateText({
       model,
       system: "You are a text-processing tool. Output ONLY the final result as plain text with no preamble, explanation, or commentary. Never use markdown, HTML, or any formatting syntax. Never refuse or ask questions.",
       prompt,
       ...(reasoning ? {} : { temperature: needsVariety ? 0.9 : 0 }),
+      ...(reasoning ? { providerOptions: reasoningOptions(providerId, needsDeepThinking) } : {}),
     });
 
     // Detect conversational responses that slipped through the prompt constraints

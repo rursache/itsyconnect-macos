@@ -247,6 +247,7 @@ export default function ReviewsPage() {
   const [replying, setReplying] = useState(false);
   const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [draftingReply, setDraftingReply] = useState(false);
+  const [translatingReply, setTranslatingReply] = useState(false);
 
   // Delete response
   const [deletingResponseId, setDeletingResponseId] = useState<string | null>(null);
@@ -501,6 +502,46 @@ export default function ReviewsPage() {
       toast.error(err instanceof Error ? err.message : "Failed to generate reply");
     } finally {
       setDraftingReply(false);
+    }
+  }
+
+  async function handleTranslateReply() {
+    if (!replyTarget || !replyBody.trim()) return;
+    if (!aiConfigured) {
+      setShowAIRequired(true);
+      return;
+    }
+
+    setTranslatingReply(true);
+    try {
+      const toLocale = territoryToLocale(replyTarget.territory);
+      const res = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "translate",
+          text: replyBody.trim(),
+          field: "review-reply",
+          fromLocale: "en-US",
+          toLocale,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.error === "ai_not_configured") {
+          setShowAIRequired(true);
+          return;
+        }
+        throw new Error(data.error ?? "Translation failed");
+      }
+
+      const { result } = await res.json();
+      setReplyBody(result);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Translation failed");
+    } finally {
+      setTranslatingReply(false);
     }
   }
 
@@ -948,18 +989,46 @@ export default function ReviewsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            {replyTarget && (
-              <div className="rounded-lg border bg-muted/50 px-4 py-3 space-y-1">
-                <div className="flex items-center gap-2">
-                  <Stars rating={replyTarget.rating} size={10} />
-                  <span className="text-xs text-muted-foreground">
-                    {replyTarget.reviewerNickname}
-                  </span>
+            {replyTarget && (() => {
+              const isForeign = NON_ENGLISH_TERRITORIES.has(replyTarget.territory);
+              const translated = showTranslation[replyTarget.id] && translations[replyTarget.id];
+              const isTranslatingReview = translating[replyTarget.id];
+              return (
+                <div className="rounded-lg border bg-muted/50 px-4 py-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Stars rating={replyTarget.rating} size={10} />
+                    <span className="text-xs text-muted-foreground">
+                      {replyTarget.reviewerNickname}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium">
+                    {translated ? translations[replyTarget.id].title : replyTarget.title}
+                  </p>
+                  <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">
+                    {translated ? translations[replyTarget.id].body : replyTarget.body}
+                  </p>
+                  {isForeign && (
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                      onClick={() => handleTranslate(replyTarget)}
+                      disabled={isTranslatingReview}
+                    >
+                      {isTranslatingReview ? (
+                        <CircleNotch size={12} className="animate-spin" />
+                      ) : (
+                        <Translate size={12} />
+                      )}
+                      {isTranslatingReview
+                        ? "Translating…"
+                        : translated
+                          ? "Show original"
+                          : "Translate"}
+                    </button>
+                  )}
                 </div>
-                <p className="text-sm font-medium">{replyTarget.title}</p>
-                <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">{replyTarget.body}</p>
-              </div>
-            )}
+              );
+            })()}
             <Textarea
               value={replyBody}
               onChange={(e) => setReplyBody(e.target.value)}
@@ -967,9 +1036,28 @@ export default function ReviewsPage() {
               className="min-h-[120px] max-h-[40vh] font-mono text-sm"
               maxLength={MAX_RESPONSE_LENGTH}
             />
-            <p className="text-right text-xs text-muted-foreground tabular-nums">
-              {replyBody.length} / {MAX_RESPONSE_LENGTH}
-            </p>
+            <div className="flex items-center justify-between">
+              {replyTarget && NON_ENGLISH_TERRITORIES.has(replyTarget.territory) && replyBody.trim() ? (
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  onClick={handleTranslateReply}
+                  disabled={translatingReply}
+                >
+                  {translatingReply ? (
+                    <CircleNotch size={12} className="animate-spin" />
+                  ) : (
+                    <Translate size={12} />
+                  )}
+                  {translatingReply ? "Translating…" : "Translate reply"}
+                </button>
+              ) : (
+                <span />
+              )}
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {replyBody.length} / {MAX_RESPONSE_LENGTH}
+              </p>
+            </div>
           </div>
           <DialogFooter className="flex w-full items-center sm:justify-between">
             <Button
@@ -988,6 +1076,7 @@ export default function ReviewsPage() {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => {
                   setReplyTarget(null);
                   setReplyBody("");
@@ -998,6 +1087,7 @@ export default function ReviewsPage() {
                 Cancel
               </Button>
               <Button
+                size="sm"
                 onClick={handleReply}
                 disabled={replying || !replyBody.trim()}
               >
