@@ -95,14 +95,17 @@ export function HeaderVersionPicker() {
 
   if (!appId) return null;
 
-  const pageSegment = pathname
+  const subpath = pathname
     .replace(`/dashboard/apps/${appId}`, "")
-    .replace(/^\//, "")
-    .split("/")[0];
+    .replace(/^\//, "");
+  const pageSegment = subpath.split("/")[0];
 
-  if (!VERSION_PAGES.has(pageSegment)) return null;
+  const isTestFlight = subpath === "testflight";
+  if (!VERSION_PAGES.has(pageSegment) && !isTestFlight) return null;
 
-  const isTestFlight = pageSegment === "testflight";
+  // On testflight subpages (build detail, groups, etc.) hide the picker
+  // visually but keep the Radix tree mounted to prevent hydration ID drift.
+  const shouldHide = pageSegment === "testflight" && !isTestFlight;
 
   const platforms = getVersionPlatforms(versions);
   const versionParam = searchParams.get("version");
@@ -154,7 +157,7 @@ export function HeaderVersionPicker() {
   }
 
   return (
-    <>
+    <div className={shouldHide ? "hidden" : "contents"}>
       <Separator orientation="vertical" className="mx-2 !h-4" />
       <Popover open={platformPickerOpen} onOpenChange={setPlatformPickerOpen}>
         <PopoverTrigger asChild>
@@ -323,7 +326,7 @@ export function HeaderVersionPicker() {
           </DialogContent>
         </Dialog>
       )}
-    </>
+    </div>
   );
 }
 
@@ -365,7 +368,9 @@ export function HeaderVersionActions() {
     .replace(/^\//, "")
     .split("/")[0];
 
-  const showSave = SAVE_PAGES.has(pageSegment);
+  // Show save/discard on dedicated save pages, or any page that marked
+  // the form dirty (e.g. testflight build detail editing "what's new").
+  const showSave = SAVE_PAGES.has(pageSegment) || isDirty;
   const showNewVersion = pageSegment === OVERVIEW_PAGE;
 
   if (!showSave && !showNewVersion) return null;

@@ -734,6 +734,38 @@ export function getMockGroupDetail(groupId: string): TFGroupDetail | null {
   return { group, builds, testers };
 }
 
+export function getMockBuildTesters(buildId: string): TFTester[] {
+  const build = MOCK_TF_BUILDS.find((b) => b.id === buildId);
+  if (!build) return [];
+
+  // Return a subset of testers from the build's groups as individual testers
+  const groupTesters = build.groupIds.flatMap((gid) =>
+    MOCK_BETA_TESTERS.filter((t) => t.groupId === gid),
+  );
+
+  // Deduplicate by ID and take up to 3 as "individual" testers
+  const seen = new Set<string>();
+  const result: TFTester[] = [];
+  for (const t of groupTesters) {
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    result.push({
+      id: t.id,
+      firstName: t.firstName,
+      lastName: t.lastName,
+      email: t.email || null,
+      inviteType: t.isPublicLink ? "PUBLIC_LINK" : "EMAIL",
+      state: t.status.toUpperCase().replace(/ /g, "_"),
+      sessions: t.sessions,
+      crashes: t.crashes,
+      feedbackCount: t.feedbackCount,
+    });
+    if (result.length >= 3) break;
+  }
+
+  return result;
+}
+
 export function getMockBetaAppInfo(appId: string): TFBetaAppInfo {
   void appId;
 

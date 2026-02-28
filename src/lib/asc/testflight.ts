@@ -730,6 +730,149 @@ export async function updateBetaLicenseAgreement(
   cacheInvalidatePrefix("tf-info:");
 }
 
+// ── Build group mutations ─────────────────────────────────────────
+
+export async function addBuildToGroups(
+  buildId: string,
+  groupIds: string[],
+): Promise<void> {
+  await ascFetch(`/v1/builds/${buildId}/relationships/betaGroups`, {
+    method: "POST",
+    body: JSON.stringify({
+      data: groupIds.map((id) => ({ type: "betaGroups", id })),
+    }),
+  });
+  cacheInvalidatePrefix("tf-builds:");
+  cacheInvalidatePrefix("tf-groups:");
+}
+
+export async function removeBuildFromGroups(
+  buildId: string,
+  groupIds: string[],
+): Promise<void> {
+  await ascFetch(`/v1/builds/${buildId}/relationships/betaGroups`, {
+    method: "DELETE",
+    body: JSON.stringify({
+      data: groupIds.map((id) => ({ type: "betaGroups", id })),
+    }),
+  });
+  cacheInvalidatePrefix("tf-builds:");
+  cacheInvalidatePrefix("tf-groups:");
+}
+
+// ── Individual testers on builds ──────────────────────────────────
+
+export async function listBuildIndividualTesters(
+  buildId: string,
+): Promise<TFTester[]> {
+  const response = await ascFetch<AscJsonApiResponse>(
+    `/v1/builds/${buildId}/individualTesters?fields[betaTesters]=firstName,lastName,email,inviteType,state&limit=200`,
+  );
+
+  const dataArr = Array.isArray(response.data)
+    ? response.data
+    : response.data ? [response.data] : [];
+
+  return dataArr.map((t) => {
+    const attrs = t.attributes;
+    return {
+      id: t.id,
+      firstName: (attrs.firstName as string) ?? "Anonymous",
+      lastName: (attrs.lastName as string) ?? "",
+      email: (attrs.email as string) ?? null,
+      inviteType: (attrs.inviteType as string) ?? "EMAIL",
+      state: (attrs.state as string) ?? "NOT_INVITED",
+      sessions: 0,
+      crashes: 0,
+      feedbackCount: 0,
+    };
+  });
+}
+
+export async function addIndividualTestersToBuild(
+  buildId: string,
+  testerIds: string[],
+): Promise<void> {
+  await ascFetch(`/v1/builds/${buildId}/relationships/individualTesters`, {
+    method: "POST",
+    body: JSON.stringify({
+      data: testerIds.map((id) => ({ type: "betaTesters", id })),
+    }),
+  });
+}
+
+export async function removeIndividualTestersFromBuild(
+  buildId: string,
+  testerIds: string[],
+): Promise<void> {
+  await ascFetch(`/v1/builds/${buildId}/relationships/individualTesters`, {
+    method: "DELETE",
+    body: JSON.stringify({
+      data: testerIds.map((id) => ({ type: "betaTesters", id })),
+    }),
+  });
+}
+
+// ── App-level beta testers ────────────────────────────────────────
+
+export async function listAppBetaTesters(
+  appId: string,
+): Promise<TFTester[]> {
+  const response = await ascFetch<AscJsonApiResponse>(
+    `/v1/betaTesters?filter[apps]=${appId}&fields[betaTesters]=firstName,lastName,email,inviteType,state&limit=200`,
+  );
+
+  const dataArr = Array.isArray(response.data)
+    ? response.data
+    : response.data ? [response.data] : [];
+
+  return dataArr.map((t) => {
+    const attrs = t.attributes;
+    return {
+      id: t.id,
+      firstName: (attrs.firstName as string) ?? "Anonymous",
+      lastName: (attrs.lastName as string) ?? "",
+      email: (attrs.email as string) ?? null,
+      inviteType: (attrs.inviteType as string) ?? "EMAIL",
+      state: (attrs.state as string) ?? "NOT_INVITED",
+      sessions: 0,
+      crashes: 0,
+      feedbackCount: 0,
+    };
+  });
+}
+
+export async function createBetaTester(
+  appId: string,
+  email: string,
+  firstName?: string,
+  lastName?: string,
+): Promise<string> {
+  const attributes: Record<string, string> = { email };
+  if (firstName) attributes.firstName = firstName;
+  if (lastName) attributes.lastName = lastName;
+
+  const response = await ascFetch<{ data: { id: string } }>(
+    `/v1/betaTesters`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        data: {
+          type: "betaTesters",
+          attributes,
+          relationships: {
+            apps: {
+              data: [{ type: "apps", id: appId }],
+            },
+          },
+        },
+      }),
+    },
+  );
+
+  return response.data.id;
+}
+
 // ── Cache invalidation helpers ───────────────────────────────────
 
 export function invalidateTestFlightCache(appId: string): void {
