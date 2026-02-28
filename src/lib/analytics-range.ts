@@ -35,14 +35,19 @@ function monthLabel(year: number, month: number): string {
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const CUSTOM_RE = /^\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}$/;
 
-export function parseRange(range: string | null): DateRange {
+/**
+ * Parse a range string into a DateRange.
+ * @param anchor – the last date with available data (e.g. yesterday).
+ *   Presets like "7d" end on this date instead of today.
+ */
+export function parseRange(range: string | null, anchor?: string): DateRange {
   if (!range) {
-    return presetRange("30d");
+    return presetRange("30d", anchor);
   }
 
   // Preset: 1d, 7d, 30d, 90d
   if (range in PRESET_DAYS) {
-    return presetRange(range);
+    return presetRange(range, anchor);
   }
 
   // Month: 2026-02
@@ -64,17 +69,17 @@ export function parseRange(range: string | null): DateRange {
   }
 
   // Invalid – fall back to 30d
-  return presetRange("30d");
+  return presetRange("30d", anchor);
 }
 
-function presetRange(key: string): DateRange {
+function presetRange(key: string, anchor?: string): DateRange {
   const days = PRESET_DAYS[key] ?? 30;
-  const today = todayStr();
-  const from = subtractDays(today, days - 1);
+  const endDate = anchor ?? todayStr();
+  const from = subtractDays(endDate, days - 1);
   return {
     from,
-    to: today,
-    label: days === 1 ? "Today" : `Last ${days} days`,
+    to: endDate,
+    label: days === 1 ? "Last day" : `Last ${days} days`,
   };
 }
 

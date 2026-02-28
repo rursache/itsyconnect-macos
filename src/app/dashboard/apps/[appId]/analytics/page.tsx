@@ -71,9 +71,9 @@ function pctChange(current: number, previous: number): string {
 
 export default function AnalyticsOverviewPage() {
   const searchParams = useSearchParams();
-  const range = useMemo(() => parseRange(searchParams.get("range")), [searchParams]);
+  const { data, loading, error, pending, lastDate } = useAnalytics();
+  const range = useMemo(() => parseRange(searchParams.get("range"), lastDate), [searchParams, lastDate]);
   const prevRange = useMemo(() => previousRange(range), [range]);
-  const { data, loading, error, pending } = useAnalytics();
 
   const downloads = useMemo(
     () => filterByDateRange(data?.dailyDownloads ?? [], range),
@@ -137,6 +137,25 @@ export default function AnalyticsOverviewPage() {
   );
   const totalImpressions = engagement.reduce((s, d) => s + d.impressions, 0);
   const totalPageViews = engagement.reduce((s, d) => s + d.pageViews, 0);
+
+  const territories = useMemo(() => {
+    const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+    const filtered = (data?.dailyTerritoryDownloads ?? []).filter(
+      (d) => d.date >= range.from && d.date <= range.to,
+    );
+    const byCode = new Map<string, number>();
+    for (const row of filtered) {
+      byCode.set(row.code, (byCode.get(row.code) || 0) + row.downloads);
+    }
+    return Array.from(byCode.entries())
+      .map(([code, downloads]) => {
+        let territory: string;
+        try { territory = displayNames.of(code) ?? code; } catch { territory = code; }
+        return { territory, code, downloads };
+      })
+      .sort((a, b) => b.downloads - a.downloads)
+      .slice(0, 10);
+  }, [data, range]);
 
   const funnelData = [
     { stage: "impressions", value: totalImpressions },
@@ -361,7 +380,7 @@ export default function AnalyticsOverviewPage() {
               className="h-[320px] w-full"
             >
               <BarChart
-                data={data.territories}
+                data={territories}
                 layout="vertical"
                 accessibilityLayer
               >

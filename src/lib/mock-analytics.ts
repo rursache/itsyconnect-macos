@@ -143,6 +143,24 @@ export const DAILY_WEB_PREVIEW = ANALYTICS_DAYS.map((date, i) => ({
   appStoreTaps: webTaps[i],
 }));
 
+// ---------- Territory downloads (daily) ----------
+
+const TERRITORY_CODES = ["US", "DE", "GB", "FR", "CA", "AU", "NL", "AT", "IT", "ES"];
+const TERRITORY_WEIGHTS = [35, 15, 10, 8, 5, 5, 4, 3, 3, 2];
+
+export const DAILY_TERRITORY_DOWNLOADS: Array<{ date: string; code: string; downloads: number }> = [];
+for (let i = 0; i < DAY_COUNT; i++) {
+  const dayTotal = firstTime[i] + redownload[i];
+  for (let t = 0; t < TERRITORY_CODES.length; t++) {
+    const downloads = Math.max(0, Math.round(
+      dayTotal * (TERRITORY_WEIGHTS[t] / 100) + n(i * 10 + t, 50 + t) * 3,
+    ));
+    if (downloads > 0) {
+      DAILY_TERRITORY_DOWNLOADS.push({ date: ANALYTICS_DAYS[i], code: TERRITORY_CODES[t], downloads });
+    }
+  }
+}
+
 // ---------- Aggregated / static data ----------
 
 export const TERRITORIES = [
@@ -195,6 +213,7 @@ export interface AnalyticsData {
   dailyVersionSessions: Array<{ date: string; [version: string]: number | string }>;
   dailyOptIn: Array<{ date: string; downloading: number; optingIn: number }>;
   dailyWebPreview: Array<{ date: string; pageViews: number; appStoreTaps: number }>;
+  dailyTerritoryDownloads: Array<{ date: string; code: string; downloads: number }>;
   territories: Array<{ territory: string; code: string; downloads: number; revenue: number }>;
   discoverySources: Array<{ source: string; count: number; fill: string }>;
   crashesByVersion: Array<{ version: string; platform: string; crashes: number; uniqueDevices: number }>;
@@ -212,6 +231,7 @@ export function getMockAnalyticsData(_appId: string): AnalyticsData {
     dailyVersionSessions: DAILY_VERSION_SESSIONS,
     dailyOptIn: DAILY_OPT_IN,
     dailyWebPreview: DAILY_WEB_PREVIEW,
+    dailyTerritoryDownloads: DAILY_TERRITORY_DOWNLOADS,
     territories: TERRITORIES,
     discoverySources: DISCOVERY_SOURCES,
     crashesByVersion: CRASHES_BY_VERSION,

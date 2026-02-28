@@ -62,8 +62,8 @@ const VERSION_COLORS = [
 
 export default function UsagePage() {
   const searchParams = useSearchParams();
-  const range = useMemo(() => parseRange(searchParams.get("range")), [searchParams]);
-  const { data, loading, error, pending } = useAnalytics();
+  const { data, loading, error, pending, lastDate } = useAnalytics();
+  const range = useMemo(() => parseRange(searchParams.get("range"), lastDate), [searchParams, lastDate]);
 
   const sessions = useMemo(
     () => filterByDateRange(data?.dailySessions ?? [], range),

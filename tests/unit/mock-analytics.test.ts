@@ -165,10 +165,10 @@ describe("mock-analytics", () => {
       expect(data.crashesByDevice).toBe(CRASHES_BY_DEVICE);
     });
 
-    it("has all 14 expected keys", () => {
+    it("has all expected keys", () => {
       const data = getMockAnalyticsData("app-001");
       const keys = Object.keys(data);
-      expect(keys).toHaveLength(13);
+      expect(keys).toHaveLength(14);
     });
   });
 

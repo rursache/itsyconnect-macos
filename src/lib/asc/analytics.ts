@@ -78,6 +78,8 @@ async function findReportRequestIds(appId: string): Promise<string[]> {
 
   // Collect both ONGOING and ONE_TIME_SNAPSHOT request IDs.
   // ONGOING has recent daily data; SNAPSHOT has historical backfill.
+  // Their instances can overlap on data dates – fetchReportData
+  // deduplicates rows by data date to prevent double-counting.
   const ids = response.data
     .filter((r) => r.attributes.accessType === "ONGOING" || r.attributes.accessType === "ONE_TIME_SNAPSHOT")
     .map((r) => r.id);
@@ -216,16 +218,14 @@ async function fetchReportData(
 ): Promise<Array<Record<string, string>>> {
   const today = new Date().toISOString().slice(0, 10);
 
-  // Collect instances from ALL report requests (ONGOING + SNAPSHOT),
-  // deduplicate by processingDate (prefer the first seen).
-  const seenDates = new Set<string>();
+  // Collect instances, deduplicate by processingDate.
+  const seenProcessingDates = new Set<string>();
   const uniqueInstances: AscReportInstance[] = [];
 
   for (const requestId of requestIds) {
     const reportId = await findReportId(requestId, category, reportName);
     if (!reportId) continue;
 
-    // Paginate through all instances up to maxInstances
     let url: string | undefined =
       `/v1/analyticsReports/${reportId}/instances?filter[granularity]=${granularity}&limit=${Math.min(limit, 200)}`;
     let pageCount = 0;
@@ -237,8 +237,8 @@ async function fetchReportData(
 
       for (const inst of resp.data) {
         const date = inst.attributes.processingDate;
-        if (!seenDates.has(date)) {
-          seenDates.add(date);
+        if (!seenProcessingDates.has(date)) {
+          seenProcessingDates.add(date);
           uniqueInstances.push(inst);
         }
       }
@@ -249,14 +249,12 @@ async function fetchReportData(
     console.log(`[analytics] ${reportName} from request ${requestId}: ${pageCount} page(s)`);
   }
 
-  console.log(`[analytics] ${reportName}: ${uniqueInstances.length} unique instances across ${requestIds.length} requests`);
+  console.log(`[analytics] ${reportName}: ${uniqueInstances.length} unique instances`);
 
   if (uniqueInstances.length === 0) return [];
 
-  // For each instance: use per-instance cache (past days are immutable),
-  // only download if missing or today (today's data may still update).
-  // All instances are launched concurrently but the global download
-  // semaphore (MAX_CONCURRENT_DOWNLOADS) limits actual S3 requests.
+  // Download all instances concurrently (semaphore limits S3 requests).
+  // Per-instance cache: past days are immutable, today's data may update.
   const results = await Promise.allSettled(
     uniqueInstances.map(async (instance) => {
       const instanceKey = `analytics-inst:${instance.id}`;
@@ -273,16 +271,39 @@ async function fetchReportData(
     }),
   );
 
-  const allRows: Array<Record<string, string>> = [];
+  // Each instance can contain rows for multiple data dates, and
+  // consecutive instances overlap (e.g. instance processed on Feb 23
+  // contains data for Feb 21–22, while Feb 24's has Feb 22–23).
+  // Deduplicate by keeping only the first occurrence of each data date.
+  // Instances are ordered newest-first from the API, so the most recent
+  // (freshest) data wins for any overlapping date.
+  const seenDataDates = new Set<string>();
+  const deduped: Array<Record<string, string>> = [];
+
   for (const result of results) {
-    if (result.status === "fulfilled") {
-      allRows.push(...result.value);
-    } else {
+    if (result.status !== "fulfilled") {
       console.warn(`[analytics] Instance download failed:`, result.reason);
+      continue;
+    }
+
+    // Group this instance's rows by their Date field
+    const rowsByDate = new Map<string, Array<Record<string, string>>>();
+    for (const row of result.value) {
+      const date = row["Date"] ?? row["date"] ?? "";
+      if (!date) { deduped.push(row); continue; }
+      if (!rowsByDate.has(date)) rowsByDate.set(date, []);
+      rowsByDate.get(date)!.push(row);
+    }
+
+    for (const [date, rows] of rowsByDate) {
+      if (!seenDataDates.has(date)) {
+        seenDataDates.add(date);
+        deduped.push(...rows);
+      }
     }
   }
 
-  return allRows;
+  return deduped;
 }
 
 // ---------- Aggregation ----------
@@ -335,12 +356,42 @@ function aggregateDownloads(
 function aggregateDownloadsBySource(
   rows: Array<Record<string, string>>,
 ): AnalyticsData["dailyDownloadsBySource"] {
-  return groupByDate(rows, "Date", (dateRows) => ({
-    search: countByFieldValue(dateRows, "Source Type", "App Store search"),
-    browse: countByFieldValue(dateRows, "Source Type", "App Store browse"),
-    webReferrer: countByFieldValue(dateRows, "Source Type", "Web referrer"),
-    unavailable: countByFieldValue(dateRows, "Source Type", "Unavailable"),
-  }));
+  // Only count first-time + redownload (consistent with KPI, excludes updates)
+  const filterDl = (dateRows: Array<Record<string, string>>) =>
+    dateRows.filter((r) => {
+      const dt = r["Download Type"];
+      return !dt || dt === "First-time download" || dt === "Redownload";
+    });
+  return groupByDate(rows, "Date", (dateRows) => {
+    const filtered = filterDl(dateRows);
+    return {
+      search: countByFieldValue(filtered, "Source Type", "App Store search"),
+      browse: countByFieldValue(filtered, "Source Type", "App Store browse"),
+      webReferrer: countByFieldValue(filtered, "Source Type", "Web referrer"),
+      unavailable: countByFieldValue(filtered, "Source Type", "Unavailable"),
+    };
+  });
+}
+
+function aggregateDailyTerritoryDownloads(
+  rows: Array<Record<string, string>>,
+): AnalyticsData["dailyTerritoryDownloads"] {
+  const map = new Map<string, number>(); // "date|code" → count
+  for (const row of rows) {
+    const date = row["Date"];
+    const code = row["Territory"];
+    const dlType = row["Download Type"];
+    if (!date || !code) continue;
+    // Only count first-time downloads and redownloads (consistent with the
+    // "Total downloads" KPI, which excludes updates).
+    if (dlType && dlType !== "First-time download" && dlType !== "Redownload") continue;
+    const key = `${date}|${code}`;
+    map.set(key, (map.get(key) || 0) + (parseInt(row["Counts"] || row["Downloads"] || "1", 10) || 1));
+  }
+  return Array.from(map.entries()).map(([key, downloads]) => {
+    const [date, code] = key.split("|");
+    return { date, code, downloads };
+  });
 }
 
 function aggregateTerritories(
@@ -349,11 +400,13 @@ function aggregateTerritories(
 ): AnalyticsData["territories"] {
   const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
 
-  // Download counts by territory
+  // Download counts by territory (first-time + redownload only, consistent with KPI)
   const downloadsByTerritory = new Map<string, number>();
   for (const row of rows) {
     const code = row["Territory"];
+    const dlType = row["Download Type"];
     if (!code) continue;
+    if (dlType && dlType !== "First-time download" && dlType !== "Redownload") continue;
     downloadsByTerritory.set(
       code,
       (downloadsByTerritory.get(code) || 0) + (parseInt(row["Counts"] || row["Downloads"] || "1", 10) || 1),
@@ -401,7 +454,10 @@ function aggregateDiscoverySources(
   const sourceMap = new Map<string, number>();
   for (const row of rows) {
     const source = row["Source Type"];
+    const dlType = row["Download Type"];
     if (!source) continue;
+    // Only count first-time downloads and redownloads (consistent with KPI)
+    if (dlType && dlType !== "First-time download" && dlType !== "Redownload") continue;
     sourceMap.set(
       source,
       (sourceMap.get(source) || 0) + (parseInt(row["Counts"] || row["Downloads"] || "1", 10) || 1),
@@ -554,6 +610,7 @@ function emptyAnalyticsData(): AnalyticsData {
     dailySessions: [],
     dailyInstallsDeletes: [],
     dailyDownloadsBySource: [],
+    dailyTerritoryDownloads: [],
     dailyVersionSessions: [],
     dailyOptIn: [],
     dailyWebPreview: [],
@@ -642,6 +699,7 @@ async function buildAnalyticsDataInner(
     dailySessions: aggregateSessions(filteredSessions),
     dailyInstallsDeletes: aggregateInstallsDeletes(filteredInstallDeletes),
     dailyDownloadsBySource: aggregateDownloadsBySource(filteredDownloads),
+    dailyTerritoryDownloads: aggregateDailyTerritoryDownloads(filteredDownloads),
     dailyVersionSessions: aggregateVersionSessions(filteredSessions),
     dailyOptIn: aggregateOptIn(filteredOptIn),
     dailyWebPreview: aggregateWebPreview(filteredWebPreview),

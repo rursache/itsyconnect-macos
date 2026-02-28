@@ -11,7 +11,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// ---------- parseRange ----------
+// ---------- parseRange (no anchor – falls back to today) ----------
 
 describe("parseRange", () => {
   it("defaults to 30d when range is null", () => {
@@ -25,7 +25,7 @@ describe("parseRange", () => {
     const r = parseRange("1d");
     expect(r.from).toBe("2026-02-28");
     expect(r.to).toBe("2026-02-28");
-    expect(r.label).toBe("Today");
+    expect(r.label).toBe("Last day");
   });
 
   it("parses 7d preset", () => {
@@ -90,6 +90,51 @@ describe("parseRange", () => {
     const r = parseRange("");
     expect(r.from).toBe("2026-01-30");
     expect(r.to).toBe("2026-02-28");
+  });
+});
+
+// ---------- parseRange with anchor ----------
+
+describe("parseRange with anchor", () => {
+  const anchor = "2026-02-27";
+
+  it("1d anchors to last available date", () => {
+    const r = parseRange("1d", anchor);
+    expect(r.from).toBe("2026-02-27");
+    expect(r.to).toBe("2026-02-27");
+    expect(r.label).toBe("Last day");
+  });
+
+  it("7d anchors to last available date", () => {
+    const r = parseRange("7d", anchor);
+    expect(r.from).toBe("2026-02-21");
+    expect(r.to).toBe("2026-02-27");
+    expect(r.label).toBe("Last 7 days");
+  });
+
+  it("30d anchors to last available date", () => {
+    const r = parseRange("30d", anchor);
+    expect(r.from).toBe("2026-01-29");
+    expect(r.to).toBe("2026-02-27");
+    expect(r.label).toBe("Last 30 days");
+  });
+
+  it("null defaults to 30d anchored", () => {
+    const r = parseRange(null, anchor);
+    expect(r.from).toBe("2026-01-29");
+    expect(r.to).toBe("2026-02-27");
+  });
+
+  it("month range ignores anchor", () => {
+    const r = parseRange("2026-02", anchor);
+    expect(r.from).toBe("2026-02-01");
+    expect(r.to).toBe("2026-02-28");
+  });
+
+  it("custom range ignores anchor", () => {
+    const r = parseRange("2026-01-01..2026-02-15", anchor);
+    expect(r.from).toBe("2026-01-01");
+    expect(r.to).toBe("2026-02-15");
   });
 });
 

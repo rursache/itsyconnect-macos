@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -18,6 +19,8 @@ interface AnalyticsState {
   error: string | null;
   pending: boolean; // bg worker hasn't fetched this app yet
   meta: { fetchedAt: number; ttlMs: number } | null;
+  /** Last date with available data (e.g. "2026-02-27"). Presets anchor to this. */
+  lastDate: string | undefined;
 }
 
 const AnalyticsContext = createContext<AnalyticsState | null>(null);
@@ -107,9 +110,22 @@ export function AnalyticsProvider({
     busy: refreshing || pending,
   });
 
+  // Derive last available data date from the longest daily series
+  const lastDate = useMemo(() => {
+    if (!data) return undefined;
+    let max = "";
+    for (const series of [data.dailyDownloads, data.dailySessions, data.dailyEngagement]) {
+      if (series.length > 0) {
+        const last = series[series.length - 1].date;
+        if (last > max) max = last;
+      }
+    }
+    return max || undefined;
+  }, [data]);
+
   return (
     <AnalyticsContext.Provider
-      value={{ data, loading, error, pending, meta }}
+      value={{ data, loading, error, pending, meta, lastDate }}
     >
       {children}
     </AnalyticsContext.Provider>

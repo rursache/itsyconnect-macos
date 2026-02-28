@@ -69,8 +69,8 @@ const SOURCE_FILLS: Record<string, string> = {
 
 export default function AcquisitionPage() {
   const searchParams = useSearchParams();
-  const range = useMemo(() => parseRange(searchParams.get("range")), [searchParams]);
-  const { data, loading, error, pending } = useAnalytics();
+  const { data, loading, error, pending, lastDate } = useAnalytics();
+  const range = useMemo(() => parseRange(searchParams.get("range"), lastDate), [searchParams, lastDate]);
 
   const engagement = useMemo(
     () => filterByDateRange(data?.dailyEngagement ?? [], range),

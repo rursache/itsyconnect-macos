@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { parseRange, type DateRange } from "@/lib/analytics-range";
+import { useAnalytics } from "@/lib/analytics-context";
 import type { DateRange as RdpDateRange } from "react-day-picker";
 
 const PRESETS = [
@@ -41,9 +42,10 @@ export function AnalyticsRangePicker() {
   const [open, setOpen] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarRange, setCalendarRange] = useState<RdpDateRange | undefined>();
+  const { lastDate } = useAnalytics();
 
   const currentRange = searchParams.get("range");
-  const parsed = parseRange(currentRange);
+  const parsed = parseRange(currentRange, lastDate);
 
   const months = useMemo(() => generateMonths(12), []);
 
@@ -106,7 +108,7 @@ export function AnalyticsRangePicker() {
               selected={calendarRange}
               defaultMonth={calendarDefault}
               numberOfMonths={2}
-              disabled={{ after: new Date() }}
+              disabled={{ after: lastDate ? new Date(lastDate + "T23:59:59") : new Date() }}
               onSelect={handleCalendarSelect}
             />
           </div>
