@@ -567,6 +567,15 @@ function aggregateWebPreview(
   }));
 }
 
+function aggregateDailyCrashes(
+  rows: Array<Record<string, string>>,
+): AnalyticsData["dailyCrashes"] {
+  return groupByDate(rows, "Date", (dateRows) => ({
+    crashes: Math.round(sumField(dateRows, "Crashes")),
+    uniqueDevices: Math.round(sumField(dateRows, "Unique Devices")),
+  }));
+}
+
 function aggregateCrashesByVersion(
   rows: Array<Record<string, string>>,
 ): AnalyticsData["crashesByVersion"] {
@@ -611,6 +620,7 @@ function emptyAnalyticsData(): AnalyticsData {
     dailyInstallsDeletes: [],
     dailyDownloadsBySource: [],
     dailyTerritoryDownloads: [],
+    dailyCrashes: [],
     dailyVersionSessions: [],
     dailyOptIn: [],
     dailyWebPreview: [],
@@ -670,7 +680,7 @@ async function buildAnalyticsDataInner(
     fetchReportData(requestIds, "APP_USAGE", "App Sessions Standard", "DAILY", 200, 365),
     fetchReportData(requestIds, "APP_USAGE", "App Store Installation and Deletion Standard", "DAILY", 200, 365),
     fetchReportData(requestIds, "APP_USAGE", "App Opt In", "DAILY", 200, 365),
-    fetchReportData(requestIds, "APP_USAGE", "App Crashes", "MONTHLY", 24, 24),
+    fetchReportData(requestIds, "APP_USAGE", "App Crashes", "DAILY", 200, 365),
   ]);
 
   // Filter rows by app's Apple ID (numeric) if present
@@ -700,6 +710,7 @@ async function buildAnalyticsDataInner(
     dailyInstallsDeletes: aggregateInstallsDeletes(filteredInstallDeletes),
     dailyDownloadsBySource: aggregateDownloadsBySource(filteredDownloads),
     dailyTerritoryDownloads: aggregateDailyTerritoryDownloads(filteredDownloads),
+    dailyCrashes: aggregateDailyCrashes(filteredCrashes),
     dailyVersionSessions: aggregateVersionSessions(filteredSessions),
     dailyOptIn: aggregateOptIn(filteredOptIn),
     dailyWebPreview: aggregateWebPreview(filteredWebPreview),

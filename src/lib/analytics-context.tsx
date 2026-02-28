@@ -110,17 +110,16 @@ export function AnalyticsProvider({
     busy: refreshing || pending,
   });
 
-  // Derive last available data date from the longest daily series
+  // Derive last available data date as the min last date across key series,
+  // so presets only show dates where all metrics have data.
   const lastDate = useMemo(() => {
     if (!data) return undefined;
-    let max = "";
-    for (const series of [data.dailyDownloads, data.dailySessions, data.dailyEngagement]) {
-      if (series.length > 0) {
-        const last = series[series.length - 1].date;
-        if (last > max) max = last;
-      }
+    const lastDates: string[] = [];
+    for (const series of [data.dailyDownloads, data.dailyRevenue, data.dailySessions, data.dailyEngagement]) {
+      if (series.length > 0) lastDates.push(series[series.length - 1].date);
     }
-    return max || undefined;
+    if (lastDates.length === 0) return undefined;
+    return lastDates.reduce((min, d) => (d < min ? d : min));
   }, [data]);
 
   return (

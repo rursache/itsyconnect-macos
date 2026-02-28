@@ -1,6 +1,23 @@
 "use client";
 
+import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import {
   Table,
   TableBody,
@@ -15,32 +32,46 @@ import {
   Desktop,
   ShieldCheck,
 } from "@phosphor-icons/react";
+import { formatDate } from "@/lib/mock-analytics";
 import { useAnalytics } from "@/lib/analytics-context";
+import { parseRange, filterByDateRange } from "@/lib/analytics-range";
 import { KpiCard } from "@/components/kpi-card";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 
+const crashConfig = {
+  crashes: { label: "Crashes", color: "var(--color-chart-4)" },
+  uniqueDevices: { label: "Affected devices", color: "var(--color-chart-2)" },
+} satisfies ChartConfig;
+
 // ---------- Page ----------
 
 export default function CrashesPage() {
-  const { data, loading, error, pending } = useAnalytics();
+  const searchParams = useSearchParams();
+  const { data, loading, error, pending, lastDate } = useAnalytics();
+  const range = useMemo(() => parseRange(searchParams.get("range"), lastDate), [searchParams, lastDate]);
 
-  const crashesByVersion = data?.crashesByVersion ?? [];
-  const crashesByDevice = data?.crashesByDevice ?? [];
-
-  const totalCrashes = crashesByVersion.reduce((s, c) => s + c.crashes, 0);
-  const totalAffected = crashesByVersion.reduce((s, c) => s + c.uniqueDevices, 0);
-  const totalDeviceModels = crashesByDevice.length;
-
-  const sessionDevices = (data?.dailySessions ?? []).reduce(
-    (s, d) => s + d.uniqueDevices,
-    0,
+  const crashSlice = useMemo(
+    () => filterByDateRange(data?.dailyCrashes ?? [], range),
+    [data, range],
   );
+
+  const sessionSlice = useMemo(
+    () => filterByDateRange(data?.dailySessions ?? [], range),
+    [data, range],
+  );
+
+  const totalCrashes = crashSlice.reduce((s, c) => s + c.crashes, 0);
+  const totalAffected = crashSlice.reduce((s, c) => s + c.uniqueDevices, 0);
+  const sessionDevices = sessionSlice.reduce((s, d) => s + d.uniqueDevices, 0);
 
   const crashFreeRate =
     sessionDevices > 0
       ? ((1 - totalAffected / sessionDevices) * 100).toFixed(1)
       : "100";
+
+  const crashesByVersion = data?.crashesByVersion ?? [];
+  const crashesByDevice = data?.crashesByDevice ?? [];
 
   if (loading && !data) {
     return (
@@ -81,7 +112,7 @@ export default function CrashesPage() {
         <KpiCard
           title="Total crashes"
           value={totalCrashes.toLocaleString()}
-          subtitle={`Across ${crashesByVersion.length} version${crashesByVersion.length !== 1 ? "s" : ""}`}
+          subtitle={`In selected period`}
           icon={Bug}
         />
         <KpiCard
@@ -98,11 +129,58 @@ export default function CrashesPage() {
         />
         <KpiCard
           title="Device models"
-          value={totalDeviceModels.toLocaleString()}
+          value={crashesByDevice.length.toLocaleString()}
           subtitle="Distinct models affected"
           icon={Desktop}
         />
       </div>
+
+      {/* Daily crash chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">
+            Crashes over time
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={crashConfig} className="h-[280px] w-full">
+            <AreaChart data={crashSlice} accessibilityLayer>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={formatDate}
+                interval="preserveStartEnd"
+              />
+              <YAxis tickLine={false} axisLine={false} width={40} allowDecimals={false} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(v) => formatDate(v as string)}
+                  />
+                }
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Area
+                type="monotone"
+                dataKey="crashes"
+                fill="var(--color-crashes)"
+                stroke="var(--color-crashes)"
+                fillOpacity={0.3}
+              />
+              <Area
+                type="monotone"
+                dataKey="uniqueDevices"
+                fill="var(--color-uniqueDevices)"
+                stroke="var(--color-uniqueDevices)"
+                fillOpacity={0.2}
+              />
+            </AreaChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
 
       {/* Two tables side by side */}
       <div className="grid gap-4 lg:grid-cols-2">

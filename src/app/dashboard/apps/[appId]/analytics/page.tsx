@@ -122,10 +122,11 @@ export default function AnalyticsOverviewPage() {
     [data, range],
   );
   const totalDevices = sessionSlice.reduce((s, d) => s + d.uniqueDevices, 0);
-  const crashDevices = (data?.crashesByVersion ?? []).reduce(
-    (s, c) => s + c.uniqueDevices,
-    0,
+  const crashSlice = useMemo(
+    () => filterByDateRange(data?.dailyCrashes ?? [], range),
+    [data, range],
   );
+  const crashDevices = crashSlice.reduce((s, c) => s + c.uniqueDevices, 0);
   const crashFreeRate =
     totalDevices > 0
       ? ((1 - crashDevices / totalDevices) * 100).toFixed(1)
