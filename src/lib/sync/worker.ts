@@ -1,5 +1,5 @@
 import { hasCredentials } from "@/lib/asc/client";
-import { syncApps, syncAnalytics } from "./jobs";
+import { syncApps, syncAnalytics, syncTestFlight } from "./jobs";
 
 interface SyncSchedule {
   name: string;
@@ -12,6 +12,7 @@ interface SyncSchedule {
 const schedules: SyncSchedule[] = [
   { name: "apps", intervalMs: 60 * 60 * 1000, job: syncApps, lastRun: null, timer: null },
   { name: "analytics", intervalMs: 60 * 60 * 1000, job: syncAnalytics, lastRun: null, timer: null },
+  { name: "testflight", intervalMs: 5 * 60 * 1000, job: syncTestFlight, lastRun: null, timer: null },
 ];
 
 const inFlight = new Map<string, Promise<void>>();

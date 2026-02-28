@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Table,
@@ -10,19 +10,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { CircleNotch, ArrowClockwise } from "@phosphor-icons/react";
 import { useApps } from "@/lib/apps-context";
-import {
-  getAppTFBuilds,
-  MOCK_BETA_GROUPS,
-  type MockTFBuild,
-} from "@/lib/mock-testflight";
-import { PLATFORM_LABELS } from "@/lib/asc/version-types";
+import { useVersions } from "@/lib/versions-context";
+import { resolveVersion, PLATFORM_LABELS } from "@/lib/asc/version-types";
+import { useRegisterRefresh } from "@/lib/refresh-context";
+import type { TFBuild, TFGroup } from "@/lib/asc/testflight";
 
-const STATUS_DOTS: Record<MockTFBuild["status"], string> = {
+const STATUS_DOTS: Record<string, string> = {
   Testing: "bg-green-500",
+  "Ready to test": "bg-green-500",
   "Ready to submit": "bg-yellow-500",
+  "In beta review": "bg-blue-500",
+  "In compliance review": "bg-blue-500",
   Processing: "bg-blue-500",
   Expired: "bg-red-500",
+  Invalid: "bg-red-500",
+  "Missing compliance": "bg-amber-500",
+  "Processing exception": "bg-red-500",
 };
 
 function formatDate(iso: string): string {
@@ -39,36 +45,58 @@ export default function TestFlightBuildsPage() {
   const searchParams = useSearchParams();
   const { apps } = useApps();
   const app = apps.find((a) => a.id === appId);
-  const allBuilds = useMemo(() => getAppTFBuilds(appId), [appId]);
+  const { versions, loading: versionsLoading } = useVersions();
 
-  const platformFilter = searchParams.get("platform") ?? "all";
+  const selectedVersion = resolveVersion(versions, searchParams.get("version"));
+  const platform = selectedVersion?.attributes.platform;
+  const versionString = selectedVersion?.attributes.versionString;
 
-  const platformBuilds = useMemo(
-    () =>
-      platformFilter === "all"
-        ? allBuilds
-        : allBuilds.filter((b) => b.platform === platformFilter),
-    [allBuilds, platformFilter],
-  );
+  const [builds, setBuilds] = useState<TFBuild[]>([]);
+  const [groups, setGroups] = useState<TFGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const versions = useMemo(
-    () => [...new Set(platformBuilds.map((b) => b.versionString))],
-    [platformBuilds],
-  );
+  const fetchData = useCallback(async (forceRefresh = false) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (forceRefresh) params.set("refresh", "1");
+      if (platform) params.set("platform", platform);
+      if (versionString) params.set("version", versionString);
+      const qs = params.toString() ? `?${params}` : "";
 
-  const versionParam = searchParams.get("version") ?? "all";
-  const effectiveVersion =
-    versionParam !== "all" && versions.includes(versionParam)
-      ? versionParam
-      : "all";
+      const [buildsRes, groupsRes] = await Promise.all([
+        fetch(`/api/apps/${appId}/testflight/builds${qs}`),
+        fetch(`/api/apps/${appId}/testflight/groups${forceRefresh ? "?refresh=1" : ""}`),
+      ]);
 
-  const builds = useMemo(
-    () =>
-      effectiveVersion === "all"
-        ? platformBuilds
-        : platformBuilds.filter((b) => b.versionString === effectiveVersion),
-    [platformBuilds, effectiveVersion],
-  );
+      if (!buildsRes.ok) {
+        const data = await buildsRes.json().catch(() => ({}));
+        throw new Error(data.error ?? `Failed to fetch builds (${buildsRes.status})`);
+      }
+
+      const buildsData = await buildsRes.json();
+      setBuilds(buildsData.builds);
+
+      if (groupsRes.ok) {
+        const groupsData = await groupsRes.json();
+        setGroups(groupsData.groups);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch builds");
+    } finally {
+      setLoading(false);
+    }
+  }, [appId, platform, versionString]);
+
+  // Wait for versions to load before fetching builds (prevents double-fetch)
+  useEffect(() => {
+    if (!versionsLoading) fetchData();
+  }, [fetchData, versionsLoading]);
+
+  const handleRefresh = useCallback(() => fetchData(true), [fetchData]);
+  useRegisterRefresh({ onRefresh: handleRefresh, busy: loading });
 
   // Stats
   const stats = useMemo(() => {
@@ -77,23 +105,33 @@ export default function TestFlightBuildsPage() {
     const firstDate = dates.length > 0 ? new Date(Math.min(...dates)) : null;
     const latestDate = dates.length > 0 ? new Date(Math.max(...dates)) : null;
 
-    const now = Date.now();
-    const activeExpiries = builds
-      .filter((b) => b.status === "Testing" || b.status === "Ready to submit")
-      .map((b) => new Date(b.expiryDate).getTime())
-      .filter((t) => t > now);
-    const nearestExpiry =
-      activeExpiries.length > 0
-        ? Math.ceil((Math.min(...activeExpiries) - now) / (1000 * 60 * 60 * 24))
-        : null;
-
-    return { total, firstDate, latestDate, nearestExpiry };
+    return { total, firstDate, latestDate };
   }, [builds]);
 
   if (!app) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
         App not found
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <CircleNotch size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-20 text-sm text-muted-foreground">
+        <p>{error}</p>
+        <Button variant="outline" size="sm" onClick={() => fetchData()}>
+          <ArrowClockwise size={14} className="mr-1.5" />
+          Retry
+        </Button>
       </div>
     );
   }
@@ -122,15 +160,6 @@ export default function TestFlightBuildsPage() {
               : "–"}
           </p>
         </div>
-        <div className="h-8 border-l" />
-        <div>
-          <p className="text-muted-foreground">Expires in</p>
-          <p className="font-medium tabular-nums">
-            {stats.nearestExpiry !== null
-              ? `${stats.nearestExpiry} days`
-              : "–"}
-          </p>
-        </div>
       </div>
 
       <Table>
@@ -148,7 +177,7 @@ export default function TestFlightBuildsPage() {
         </TableHeader>
         <TableBody>
           {builds.map((build) => {
-            const groups = MOCK_BETA_GROUPS.filter((g) =>
+            const buildGroups = groups.filter((g) =>
               build.groupIds.includes(g.id),
             );
 
@@ -176,28 +205,28 @@ export default function TestFlightBuildsPage() {
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`inline-block size-2 shrink-0 rounded-full ${STATUS_DOTS[build.status]}`}
+                      className={`inline-block size-2 shrink-0 rounded-full ${STATUS_DOTS[build.status] ?? "bg-gray-400"}`}
                     />
                     <span className="text-sm">{build.status}</span>
                   </div>
-                  {build.status === "Expired" && (
+                  {build.expired && build.expirationDate && (
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(build.expiryDate)}
+                      {formatDate(build.expirationDate)}
                     </p>
                   )}
-                  {build.status === "Testing" && (
+                  {!build.expired && build.expirationDate && build.status === "Testing" && (
                     <p className="text-xs text-muted-foreground">
-                      Expires {formatDate(build.expiryDate)}
+                      Expires {formatDate(build.expirationDate)}
                     </p>
                   )}
                 </TableCell>
                 <TableCell>
-                  {groups.length > 0 ? (
+                  {buildGroups.length > 0 ? (
                     <div className="space-y-0.5">
-                      {groups.map((g) => (
+                      {buildGroups.map((g) => (
                         <div key={g.id} className="flex items-center gap-1.5 text-sm">
-                          <span className={`inline-flex size-4 items-center justify-center rounded text-[10px] font-medium ${g.type === "Internal" ? "bg-muted text-muted-foreground" : "bg-blue-100 text-blue-700"}`}>
-                            {g.type === "Internal" ? "I" : "E"}
+                          <span className={`inline-flex size-4 items-center justify-center rounded text-[10px] font-medium ${g.isInternal ? "bg-muted text-muted-foreground" : "bg-blue-100 text-blue-700"}`}>
+                            {g.isInternal ? "I" : "E"}
                           </span>
                           <span>{g.name}</span>
                         </div>

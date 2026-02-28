@@ -1,22 +1,27 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { AppWindow } from "@phosphor-icons/react";
-import {
-  getTFBuild,
-  MOCK_BETA_GROUPS,
-  type MockTFBuild,
-} from "@/lib/mock-testflight";
+import { AppWindow, CircleNotch, ArrowClockwise, FloppyDisk } from "@phosphor-icons/react";
+import { toast } from "sonner";
+import { useRegisterRefresh } from "@/lib/refresh-context";
+import type { TFBuild, TFGroup } from "@/lib/asc/testflight";
 
-const STATUS_DOTS: Record<MockTFBuild["status"], string> = {
+const STATUS_DOTS: Record<string, string> = {
   Testing: "bg-green-500",
+  "Ready to test": "bg-green-500",
   "Ready to submit": "bg-yellow-500",
+  "In beta review": "bg-blue-500",
+  "In compliance review": "bg-blue-500",
   Processing: "bg-blue-500",
   Expired: "bg-red-500",
+  Invalid: "bg-red-500",
+  "Missing compliance": "bg-amber-500",
+  "Processing exception": "bg-red-500",
 };
 
 function CharCount({ value, limit }: { value: string; limit?: number }) {
@@ -45,24 +50,117 @@ function formatDateTime(iso: string): string {
 
 export default function BuildDetailPage() {
   const { appId, buildId } = useParams<{ appId: string; buildId: string }>();
-  const build = useMemo(() => getTFBuild(buildId), [buildId]);
-  const groups = useMemo(
+
+  const [build, setBuild] = useState<TFBuild | null>(null);
+  const [groups, setGroups] = useState<TFGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [whatsNew, setWhatsNew] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const fetchData = useCallback(async (forceRefresh = false) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const qs = forceRefresh ? "?refresh=1" : "";
+      const [buildRes, groupsRes] = await Promise.all([
+        fetch(`/api/apps/${appId}/testflight/builds/${buildId}${qs}`),
+        fetch(`/api/apps/${appId}/testflight/groups${qs}`),
+      ]);
+
+      if (!buildRes.ok) {
+        const data = await buildRes.json().catch(() => ({}));
+        throw new Error(data.error ?? `Failed to fetch build (${buildRes.status})`);
+      }
+
+      const buildData = await buildRes.json();
+      setBuild(buildData.build);
+      setWhatsNew(buildData.build.whatsNew ?? "");
+
+      if (groupsRes.ok) {
+        const groupsData = await groupsRes.json();
+        setGroups(groupsData.groups);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch build");
+    } finally {
+      setLoading(false);
+    }
+  }, [appId, buildId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleRefresh = useCallback(() => fetchData(true), [fetchData]);
+  useRegisterRefresh({ onRefresh: handleRefresh, busy: loading });
+
+  const buildGroups = useMemo(
     () =>
       build
-        ? MOCK_BETA_GROUPS.filter((g) => build.groupIds.includes(g.id))
+        ? groups.filter((g) => build.groupIds.includes(g.id))
         : [],
-    [build],
+    [build, groups],
   );
-
-  const [whatsNew, setWhatsNew] = useState(build?.whatsNew ?? "");
 
   const [mountTime] = useState(() => Date.now());
   const daysUntilExpiry = useMemo(() => {
-    if (!build) return null;
-    const expiry = new Date(build.expiryDate).getTime();
+    if (!build?.expirationDate || build.expired) return null;
+    const expiry = new Date(build.expirationDate).getTime();
     if (expiry <= mountTime) return null;
     return Math.ceil((expiry - mountTime) / (1000 * 60 * 60 * 24));
   }, [build, mountTime]);
+
+  const hasChanges = build && whatsNew !== (build.whatsNew ?? "");
+
+  async function handleSave() {
+    if (!build?.whatsNewLocalizationId) {
+      toast.error("Cannot save – no localization ID available");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/apps/${appId}/testflight/builds/${buildId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          whatsNew,
+          localizationId: build.whatsNewLocalizationId,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to save");
+      }
+      toast.success("What's new saved");
+      // Update local state
+      setBuild((prev) => prev ? { ...prev, whatsNew } : prev);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <CircleNotch size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-20 text-sm text-muted-foreground">
+        <p>{error}</p>
+        <Button variant="outline" size="sm" onClick={() => fetchData()}>
+          <ArrowClockwise size={14} className="mr-1.5" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   if (!build) {
     return (
@@ -96,7 +194,7 @@ export default function BuildDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <span
-            className={`inline-block size-2 shrink-0 rounded-full ${STATUS_DOTS[build.status]}`}
+            className={`inline-block size-2 shrink-0 rounded-full ${STATUS_DOTS[build.status] ?? "bg-gray-400"}`}
           />
           <span className="text-sm font-medium">{build.status}</span>
         </div>
@@ -112,14 +210,41 @@ export default function BuildDetailPage() {
         </div>
         <div className="h-8 border-l" />
         <div>
-          <p className="text-muted-foreground">Testers</p>
-          <p className="font-medium tabular-nums">{build.testerCount}</p>
+          <p className="text-muted-foreground">Installs</p>
+          <p className="font-medium tabular-nums">{build.installs}</p>
+        </div>
+        <div className="h-8 border-l" />
+        <div>
+          <p className="text-muted-foreground">Sessions</p>
+          <p className="font-medium tabular-nums">{build.sessions}</p>
+        </div>
+        <div className="h-8 border-l" />
+        <div>
+          <p className="text-muted-foreground">Crashes</p>
+          <p className="font-medium tabular-nums">{build.crashes}</p>
         </div>
       </div>
 
       {/* What's new */}
       <section className="space-y-2">
-        <h3 className="section-title">What&apos;s new</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="section-title">What&apos;s new</h3>
+          {hasChanges && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <CircleNotch size={14} className="mr-1.5 animate-spin" />
+              ) : (
+                <FloppyDisk size={14} className="mr-1.5" />
+              )}
+              Save
+            </Button>
+          )}
+        </div>
         <Card className="gap-0 py-0">
           <CardContent className="px-5 py-4">
             <Textarea
@@ -138,20 +263,20 @@ export default function BuildDetailPage() {
       {/* Groups */}
       <section className="space-y-3">
         <h3 className="section-title">Groups</h3>
-        {groups.length === 0 ? (
+        {buildGroups.length === 0 ? (
           <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
             No groups assigned to this build.
           </div>
         ) : (
           <div className="space-y-1">
-            {groups.map((g) => (
+            {buildGroups.map((g) => (
               <Link
                 key={g.id}
                 href={`/dashboard/apps/${appId}/testflight/groups/${g.id}`}
                 className="flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50"
               >
-                <span className={`inline-flex size-4 items-center justify-center rounded text-[10px] font-medium ${g.type === "Internal" ? "bg-muted text-muted-foreground" : "bg-blue-100 text-blue-700"}`}>
-                  {g.type === "Internal" ? "I" : "E"}
+                <span className={`inline-flex size-4 items-center justify-center rounded text-[10px] font-medium ${g.isInternal ? "bg-muted text-muted-foreground" : "bg-blue-100 text-blue-700"}`}>
+                  {g.isInternal ? "I" : "E"}
                 </span>
                 <span className="text-sm font-medium">{g.name}</span>
                 <span className="ml-auto text-xs text-muted-foreground">

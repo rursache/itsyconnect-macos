@@ -53,6 +53,7 @@ export function AppSwitcher() {
             <SidebarMenuButton
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              suppressHydrationWarning
             >
               {loading ? (
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-muted">

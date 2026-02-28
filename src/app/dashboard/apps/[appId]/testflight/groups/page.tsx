@@ -1,17 +1,51 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { LinkSimple } from "@phosphor-icons/react";
+import { CircleNotch, ArrowClockwise, LinkSimple } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/button";
 import { useApps } from "@/lib/apps-context";
-import { getAppGroups } from "@/lib/mock-testflight";
+import { useRegisterRefresh } from "@/lib/refresh-context";
+import type { TFGroup } from "@/lib/asc/testflight";
 
 export default function GroupsPage() {
   const { appId } = useParams<{ appId: string }>();
   const { apps } = useApps();
   const app = apps.find((a) => a.id === appId);
-  const groups = useMemo(() => getAppGroups(appId), [appId]);
+
+  const [groups, setGroups] = useState<TFGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async (forceRefresh = false) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const qs = forceRefresh ? "?refresh=1" : "";
+      const res = await fetch(`/api/apps/${appId}/testflight/groups${qs}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `Failed to fetch groups (${res.status})`);
+      }
+      const data = await res.json();
+      setGroups(data.groups);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch groups");
+    } finally {
+      setLoading(false);
+    }
+  }, [appId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleRefresh = useCallback(() => fetchData(true), [fetchData]);
+  useRegisterRefresh({ onRefresh: handleRefresh, busy: loading });
+
+  const internalGroups = groups.filter((g) => g.isInternal);
+  const externalGroups = groups.filter((g) => !g.isInternal);
 
   if (!app) {
     return (
@@ -21,8 +55,25 @@ export default function GroupsPage() {
     );
   }
 
-  const internalGroups = groups.filter((g) => g.type === "Internal");
-  const externalGroups = groups.filter((g) => g.type === "External");
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <CircleNotch size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-20 text-sm text-muted-foreground">
+        <p>{error}</p>
+        <Button variant="outline" size="sm" onClick={() => fetchData()}>
+          <ArrowClockwise size={14} className="mr-1.5" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

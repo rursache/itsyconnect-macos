@@ -46,6 +46,15 @@ async function get(token: string, path: string, params?: Record<string, string>)
   return res.json();
 }
 
+const OUTPUT_DIR = new URL("./output", import.meta.url).pathname;
+
+function saveOutput(filename: string, data: any) {
+  if (!data) return;
+  const path = `${OUTPUT_DIR}/${filename}`;
+  fs.writeFileSync(path, JSON.stringify(data, null, 2));
+  console.log(`  Saved to ${path}`);
+}
+
 function printSummary(label: string, data: any) {
   if (!data) {
     console.log(`  ${label}: NO DATA`);
@@ -95,6 +104,7 @@ async function main() {
     "fields[buildBetaDetails]": "autoNotifyEnabled,internalBuildState,externalBuildState",
   });
   printSummary("Builds", builds);
+  saveOutput("builds.json", builds);
 
   // ─────────────────────────────────────────────
   // 2. PRE-RELEASE VERSIONS
@@ -122,6 +132,7 @@ async function main() {
     "limit": "20",
   });
   printSummary("Beta groups", betaGroups);
+  saveOutput("beta-groups.json", betaGroups);
 
   // ─────────────────────────────────────────────
   // 4. BETA TESTERS (top-level with filter)
@@ -136,6 +147,7 @@ async function main() {
     "limit": "50",
   });
   printSummary("Beta testers", betaTesters);
+  saveOutput("beta-testers.json", betaTesters);
 
   // ─────────────────────────────────────────────
   // 5. BETA APP REVIEW DETAIL
@@ -191,6 +203,22 @@ async function main() {
     console.log(`\n═══ INDIVIDUAL TESTERS FOR BUILD (build ${buildId}) ═══`);
     const buildTesters = await get(token, `/v1/builds/${buildId}/individualTesters`);
     printSummary("Build individual testers", buildTesters);
+
+    // ─────────────────────────────────────────────
+    // 8a. BUILD METRICS – betaBuildUsages
+    // ─────────────────────────────────────────────
+    console.log(`\n═══ BUILD METRICS (build ${buildId}) ═══`);
+    const buildMetrics = await get(token, `/v1/builds/${buildId}/metrics/betaBuildUsages`);
+    printSummary("Beta build usages", buildMetrics);
+    saveOutput("build-metrics.json", buildMetrics);
+
+    // ─────────────────────────────────────────────
+    // 8b. BUILD ICONS
+    // ─────────────────────────────────────────────
+    console.log(`\n═══ BUILD ICONS (build ${buildId}) ═══`);
+    const buildIcons = await get(token, `/v1/builds/${buildId}/icons`);
+    printSummary("Build icons", buildIcons);
+    saveOutput("build-icons.json", buildIcons);
   }
 
   // ─────────────────────────────────────────────
@@ -214,15 +242,21 @@ async function main() {
       }
 
       const groupTesters = await get(token, `/v1/betaGroups/${group.id}/betaTesters`, {
-        "fields[betaTesters]": "firstName,lastName,email,state",
+        "fields[betaTesters]": "firstName,lastName,email,state,inviteType",
         "limit": "50",
       });
       if (groupTesters?.data?.length) {
         console.log(`  Testers: ${groupTesters.data.length}`);
         for (const t of groupTesters.data.slice(0, 5)) {
-          console.log(`    ${t.attributes.firstName} ${t.attributes.lastName} <${t.attributes.email}> – ${t.attributes.state}`);
+          console.log(`    ${t.attributes.firstName} ${t.attributes.lastName} <${t.attributes.email}> – ${t.attributes.state} (${t.attributes.inviteType})`);
         }
       }
+
+      // Tester usage metrics per group
+      console.log(`\n  ═══ TESTER METRICS (group ${group.id}) ═══`);
+      const testerMetrics = await get(token, `/v1/betaGroups/${group.id}/metrics/betaTesterUsages`);
+      printSummary("Beta tester usages", testerMetrics);
+      saveOutput(`tester-metrics-${group.id}.json`, testerMetrics);
     }
   }
 

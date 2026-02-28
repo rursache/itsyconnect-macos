@@ -606,3 +606,162 @@ export function getAppFeedback(appId: string): MockFeedbackItem[] {
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
 }
+
+// ── Mock wrapper functions (normalised types for API routes) ─────
+
+import type {
+  TFBuild,
+  TFGroup,
+  TFGroupDetail,
+  TFTester,
+  TFBetaAppInfo,
+} from "@/lib/asc/testflight";
+
+const STATUS_MAP: Record<MockTFBuild["status"], string> = {
+  Testing: "Testing",
+  "Ready to submit": "Ready to submit",
+  Processing: "Processing",
+  Expired: "Expired",
+};
+
+export function getMockTFBuilds(
+  appId: string,
+  filters?: { platform?: string; versionString?: string },
+): TFBuild[] {
+  return MOCK_TF_BUILDS
+    .filter((b) => b.appId === appId)
+    .filter((b) => !filters?.platform || b.platform === filters.platform)
+    .filter((b) => !filters?.versionString || b.versionString === filters.versionString)
+    .sort((a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime())
+    .map((b) => ({
+      id: b.id,
+      buildNumber: b.buildNumber,
+      versionString: b.versionString,
+      platform: b.platform,
+      status: STATUS_MAP[b.status],
+      internalBuildState: null,
+      externalBuildState: null,
+      uploadedDate: b.uploadedDate,
+      expirationDate: b.expiryDate,
+      expired: b.status === "Expired",
+      minOsVersion: null,
+      whatsNew: b.whatsNew || null,
+      whatsNewLocalizationId: null,
+      groupIds: b.groupIds,
+      iconUrl: null,
+      installs: b.installs,
+      sessions: b.sessions,
+      crashes: b.crashes,
+    }));
+}
+
+export function getMockTFGroups(appId: string): TFGroup[] {
+  return MOCK_BETA_GROUPS
+    .filter((g) => g.appId === appId)
+    .map((g) => ({
+      id: g.id,
+      name: g.name,
+      isInternal: g.type === "Internal",
+      testerCount: g.testerCount,
+      buildCount: g.buildCount,
+      publicLinkEnabled: g.publicLinkEnabled,
+      publicLink: g.publicLink,
+      publicLinkLimit: null,
+      publicLinkLimitEnabled: false,
+      feedbackEnabled: true,
+      hasAccessToAllBuilds: g.type === "Internal",
+      createdDate: "2025-01-01T00:00:00Z",
+    }));
+}
+
+export function getMockGroupDetail(groupId: string): TFGroupDetail | null {
+  const mockGroup = MOCK_BETA_GROUPS.find((g) => g.id === groupId);
+  if (!mockGroup) return null;
+
+  const group: TFGroup = {
+    id: mockGroup.id,
+    name: mockGroup.name,
+    isInternal: mockGroup.type === "Internal",
+    testerCount: mockGroup.testerCount,
+    buildCount: mockGroup.buildCount,
+    publicLinkEnabled: mockGroup.publicLinkEnabled,
+    publicLink: mockGroup.publicLink,
+    publicLinkLimit: null,
+    publicLinkLimitEnabled: false,
+    feedbackEnabled: true,
+    hasAccessToAllBuilds: mockGroup.type === "Internal",
+    createdDate: "2025-01-01T00:00:00Z",
+  };
+
+  const builds: TFBuild[] = MOCK_TF_BUILDS
+    .filter((b) => b.groupIds.includes(groupId))
+    .sort((a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime())
+    .map((b) => ({
+      id: b.id,
+      buildNumber: b.buildNumber,
+      versionString: b.versionString,
+      platform: b.platform,
+      status: STATUS_MAP[b.status],
+      internalBuildState: null,
+      externalBuildState: null,
+      uploadedDate: b.uploadedDate,
+      expirationDate: b.expiryDate,
+      expired: b.status === "Expired",
+      minOsVersion: null,
+      whatsNew: b.whatsNew || null,
+      whatsNewLocalizationId: null,
+      groupIds: b.groupIds,
+      iconUrl: null,
+      installs: b.installs,
+      sessions: b.sessions,
+      crashes: b.crashes,
+    }));
+
+  const testers: TFTester[] = MOCK_BETA_TESTERS
+    .filter((t) => t.groupId === groupId)
+    .map((t) => ({
+      id: t.id,
+      firstName: t.firstName,
+      lastName: t.lastName,
+      email: t.email || null,
+      inviteType: t.isPublicLink ? "PUBLIC_LINK" : "EMAIL",
+      state: t.status.toUpperCase().replace(/ /g, "_"),
+      sessions: t.sessions,
+      crashes: t.crashes,
+      feedbackCount: t.feedbackCount,
+    }));
+
+  return { group, builds, testers };
+}
+
+export function getMockBetaAppInfo(appId: string): TFBetaAppInfo {
+  void appId;
+
+  const localizations = MOCK_BETA_LOCALIZATIONS.map((l, i) => ({
+    id: `mock-loc-${i}`,
+    locale: l.locale,
+    description: l.description,
+    feedbackEmail: l.feedbackEmail,
+    marketingUrl: l.marketingUrl,
+    privacyPolicyUrl: l.privacyPolicyUrl,
+  }));
+
+  const reviewDetail = {
+    id: "mock-review-detail",
+    contactFirstName: MOCK_BETA_REVIEW_DETAIL.contactFirstName,
+    contactLastName: MOCK_BETA_REVIEW_DETAIL.contactLastName,
+    contactPhone: MOCK_BETA_REVIEW_DETAIL.contactPhone,
+    contactEmail: MOCK_BETA_REVIEW_DETAIL.contactEmail,
+    demoAccountRequired: MOCK_BETA_REVIEW_DETAIL.signInRequired,
+    demoAccountName: MOCK_BETA_REVIEW_DETAIL.demoUsername || null,
+    demoAccountPassword: MOCK_BETA_REVIEW_DETAIL.demoPassword || null,
+    notes: MOCK_BETA_REVIEW_DETAIL.reviewNotes,
+  };
+
+  const licenseAgreement = {
+    id: "mock-license",
+    agreementText: null,
+  };
+
+  return { localizations, reviewDetail, licenseAgreement };
+}

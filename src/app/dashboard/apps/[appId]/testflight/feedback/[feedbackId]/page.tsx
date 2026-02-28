@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,11 @@ import {
   GlobeSimple,
   Package,
   WarningCircle,
+  CircleNotch,
+  ArrowClockwise,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { getFeedbackItem } from "@/lib/mock-testflight";
+import type { MockFeedbackItem } from "@/lib/mock-testflight";
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", {
@@ -34,7 +36,55 @@ export default function FeedbackDetailPage() {
     appId: string;
     feedbackId: string;
   }>();
-  const item = useMemo(() => getFeedbackItem(feedbackId), [feedbackId]);
+
+  const [item, setItem] = useState<MockFeedbackItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/apps/${appId}/testflight/feedback`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `Failed to fetch feedback (${res.status})`);
+      }
+      const data = await res.json();
+      const found = (data.feedback as MockFeedbackItem[]).find(
+        (f) => f.id === feedbackId,
+      );
+      setItem(found ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch feedback");
+    } finally {
+      setLoading(false);
+    }
+  }, [appId, feedbackId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <CircleNotch size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-20 text-sm text-muted-foreground">
+        <p>{error}</p>
+        <Button variant="outline" size="sm" onClick={() => fetchData()}>
+          <ArrowClockwise size={14} className="mr-1.5" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   if (!item) {
     return (

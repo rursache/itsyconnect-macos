@@ -58,7 +58,7 @@ import {
   type AscVersion,
 } from "@/lib/asc/version-types";
 
-const VERSION_PAGES = new Set(["store-listing", "screenshots", "review"]);
+const VERSION_PAGES = new Set(["store-listing", "screenshots", "review", "testflight"]);
 const SAVE_PAGES = new Set(["details", "store-listing", "review"]);
 const OVERVIEW_PAGE = "";
 
@@ -102,11 +102,14 @@ export function HeaderVersionPicker() {
 
   if (!VERSION_PAGES.has(pageSegment)) return null;
 
+  const isTestFlight = pageSegment === "testflight";
+
   const platforms = getVersionPlatforms(versions);
   const versionParam = searchParams.get("version");
   const selectedVersion = resolveVersion(versions, versionParam);
   const currentPlatform = selectedVersion?.attributes.platform ?? platforms[0] ?? "IOS";
-  const platformVersions = filterPickerVersions(getVersionsByPlatform(versions, currentPlatform));
+  const allPlatformVersions = getVersionsByPlatform(versions, currentPlatform);
+  const platformVersions = isTestFlight ? allPlatformVersions : filterPickerVersions(allPlatformVersions);
 
   function navigate(versionId: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -182,18 +185,22 @@ export function HeaderVersionPicker() {
                   </CommandItem>
                 ))}
               </CommandGroup>
-              <CommandSeparator />
-              <CommandGroup>
-                <CommandItem
-                  onSelect={() => {
-                    setPlatformPickerOpen(false);
-                    guardNavigation(openDialog);
-                  }}
-                >
-                  <Plus size={14} className="text-muted-foreground" />
-                  {"New platform\u2026"}
-                </CommandItem>
-              </CommandGroup>
+              {!isTestFlight && (
+                <>
+                  <CommandSeparator />
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => {
+                        setPlatformPickerOpen(false);
+                        guardNavigation(openDialog);
+                      }}
+                    >
+                      <Plus size={14} className="text-muted-foreground" />
+                      {"New platform\u2026"}
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
@@ -240,76 +247,82 @@ export function HeaderVersionPicker() {
                   </CommandItem>
                 ))}
               </CommandGroup>
-              <CommandSeparator />
-              <CommandGroup>
-                <CommandItem
-                  onSelect={() => {
-                    setPickerOpen(false);
-                    guardNavigation(openDialog);
-                  }}
-                >
-                  <Plus size={14} className="text-muted-foreground" />
-                  {"New version\u2026"}
-                </CommandItem>
-              </CommandGroup>
+              {!isTestFlight && (
+                <>
+                  <CommandSeparator />
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => {
+                        setPickerOpen(false);
+                        guardNavigation(openDialog);
+                      }}
+                    >
+                      <Plus size={14} className="text-muted-foreground" />
+                      {"New version\u2026"}
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>New App Store version</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="version-string">Version</Label>
-              <Input
-                id="version-string"
-                placeholder="e.g. 1.2.0"
-                value={versionString}
-                onChange={(e) => setVersionString(e.target.value)}
-                className="font-mono"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && versionValid && platform) {
-                    e.preventDefault();
-                    handleCreate();
-                  }
-                }}
-              />
+      {!isTestFlight && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>New App Store version</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="grid gap-2">
+                <Label htmlFor="version-string">Version</Label>
+                <Input
+                  id="version-string"
+                  placeholder="e.g. 1.2.0"
+                  value={versionString}
+                  onChange={(e) => setVersionString(e.target.value)}
+                  className="font-mono"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && versionValid && platform) {
+                      e.preventDefault();
+                      handleCreate();
+                    }
+                  }}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="platform-select">Platform</Label>
+                <Select value={platform} onValueChange={setPlatform}>
+                  <SelectTrigger id="platform-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PLATFORM_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="platform-select">Platform</Label>
-              <Select value={platform} onValueChange={setPlatform}>
-                <SelectTrigger id="platform-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(PLATFORM_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {trimmedVersion !== "" && hasInvalidVersionChars(trimmedVersion) && (
-            <p className="text-sm text-destructive">
-              Use digits and dots only (e.g. 1.2.0)
-            </p>
-          )}
-          <Button
-            onClick={handleCreate}
-            disabled={!versionValid || !platform || creating}
-          >
-            {creating && <Spinner className="size-3.5" />}
-            {creating ? "Creating\u2026" : "Create"}
-          </Button>
-        </DialogContent>
-      </Dialog>
+            {trimmedVersion !== "" && hasInvalidVersionChars(trimmedVersion) && (
+              <p className="text-sm text-destructive">
+                Use digits and dots only (e.g. 1.2.0)
+              </p>
+            )}
+            <Button
+              onClick={handleCreate}
+              disabled={!versionValid || !platform || creating}
+            >
+              {creating && <Spinner className="size-3.5" />}
+              {creating ? "Creating\u2026" : "Create"}
+            </Button>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
