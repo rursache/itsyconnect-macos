@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { cacheEntries } from "@/db/schema";
 import { eq, like } from "drizzle-orm";
 
-export function cacheGet<T>(resource: string): T | null {
+export function cacheGet<T>(resource: string, ignoreStale = false): T | null {
   const entry = db
     .select()
     .from(cacheEntries)
@@ -11,8 +11,8 @@ export function cacheGet<T>(resource: string): T | null {
 
   if (!entry) return null;
 
-  // Check staleness
-  if (Date.now() > entry.fetchedAt + entry.ttlMs) {
+  // Check staleness (skip if caller wants data regardless)
+  if (!ignoreStale && Date.now() > entry.fetchedAt + entry.ttlMs) {
     return null;
   }
 

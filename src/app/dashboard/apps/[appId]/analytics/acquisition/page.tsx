@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/chart";
 import { formatDate } from "@/lib/mock-analytics";
 import { useAnalytics } from "@/lib/analytics-context";
+import { parseRange, filterByDateRange } from "@/lib/analytics-range";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 
@@ -76,20 +77,20 @@ const SOURCE_FILLS: Record<string, string> = {
 
 export default function AcquisitionPage() {
   const searchParams = useSearchParams();
-  const days = searchParams.get("range") === "7d" ? 7 : 30;
-  const { data, loading, error, refresh } = useAnalytics();
+  const range = useMemo(() => parseRange(searchParams.get("range")), [searchParams]);
+  const { data, loading, error, pending, refresh } = useAnalytics();
 
   const engagement = useMemo(
-    () => data?.dailyEngagement.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailyEngagement ?? [], range),
+    [data, range],
   );
   const downloadsBySource = useMemo(
-    () => data?.dailyDownloadsBySource.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailyDownloadsBySource ?? [], range),
+    [data, range],
   );
   const webPreview = useMemo(
-    () => data?.dailyWebPreview.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailyWebPreview ?? [], range),
+    [data, range],
   );
 
   // Add fill property client-side if not present
@@ -104,10 +105,21 @@ export default function AcquisitionPage() {
 
   const totalSources = discoverySources.reduce((s, d) => s + d.count, 0);
 
-  if (loading) {
+  if (loading && !data) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
         <Spinner className="size-6 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (pending) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
+        <Spinner className="size-6 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Fetching analytics data – this may take a moment on first load
+        </p>
       </div>
     );
   }

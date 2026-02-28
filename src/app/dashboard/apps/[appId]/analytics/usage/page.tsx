@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/chart";
 import { formatDate } from "@/lib/mock-analytics";
 import { useAnalytics } from "@/lib/analytics-context";
+import { parseRange, filterByDateRange } from "@/lib/analytics-range";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 
@@ -61,24 +62,24 @@ const VERSION_COLORS = [
 
 export default function UsagePage() {
   const searchParams = useSearchParams();
-  const days = searchParams.get("range") === "7d" ? 7 : 30;
-  const { data, loading, error, refresh } = useAnalytics();
+  const range = useMemo(() => parseRange(searchParams.get("range")), [searchParams]);
+  const { data, loading, error, pending, refresh } = useAnalytics();
 
   const sessions = useMemo(
-    () => data?.dailySessions.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailySessions ?? [], range),
+    [data, range],
   );
   const versionSessions = useMemo(
-    () => data?.dailyVersionSessions.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailyVersionSessions ?? [] as Array<{ date: string } & Record<string, number>>, range),
+    [data, range],
   );
   const installsDeletes = useMemo(
-    () => data?.dailyInstallsDeletes.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailyInstallsDeletes ?? [], range),
+    [data, range],
   );
   const optIn = useMemo(
-    () => data?.dailyOptIn.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailyOptIn ?? [], range),
+    [data, range],
   );
 
   // Build dynamic version config from actual data keys
@@ -113,10 +114,21 @@ export default function UsagePage() {
       ? ((totalOptingIn / totalDownloading) * 100).toFixed(1)
       : "0";
 
-  if (loading) {
+  if (loading && !data) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
         <Spinner className="size-6 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (pending) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
+        <Spinner className="size-6 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Fetching analytics data – this may take a moment on first load
+        </p>
       </div>
     );
   }
@@ -390,7 +402,6 @@ export default function UsagePage() {
           </CardContent>
         </Card>
       </div>
-
     </div>
   );
 }

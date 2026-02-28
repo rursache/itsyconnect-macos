@@ -4,18 +4,11 @@ import Link from "next/link";
 import {
   useParams,
   usePathname,
-  useRouter,
   useSearchParams,
 } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { AnalyticsProvider } from "@/lib/analytics-context";
+import { AnalyticsRangePicker } from "@/components/analytics-range-picker";
 
 const TABS = [
   { label: "Overview", segment: "" },
@@ -31,17 +24,15 @@ export default function AnalyticsLayout({
 }) {
   const { appId } = useParams<{ appId: string }>();
   const pathname = usePathname();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const base = `/dashboard/apps/${appId}/analytics`;
   const range = searchParams.get("range") || "30d";
 
-  function buildHref(segment: string, newRange?: string) {
-    const r = newRange || range;
-    return `${base}${segment}${r !== "30d" ? `?range=${r}` : ""}`;
+  function buildHref(segment: string) {
+    return `${base}${segment}${range !== "30d" ? `?range=${range}` : ""}`;
   }
 
-  // Derive current segment so the select can preserve it
+  // Derive current segment so tab links preserve the range param
   const currentSegment =
     TABS.find((t) =>
       t.segment === ""
@@ -79,22 +70,7 @@ export default function AnalyticsLayout({
               );
             })}
           </nav>
-          {showRangePicker && (
-            <Select
-              value={range}
-              onValueChange={(v) => {
-                router.replace(buildHref(currentSegment, v));
-              }}
-            >
-              <SelectTrigger className="mb-1 w-[140px] text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
+          {showRangePicker && <AnalyticsRangePicker />}
         </div>
         {children}
       </div>

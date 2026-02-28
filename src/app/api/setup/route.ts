@@ -99,5 +99,9 @@ export async function POST(request: Request) {
       .run();
   }
 
+  // Start background sync now that credentials are stored
+  const { startSyncWorker } = await import("@/lib/sync/worker");
+  startSyncWorker();
+
   return NextResponse.json({ ok: true });
 }

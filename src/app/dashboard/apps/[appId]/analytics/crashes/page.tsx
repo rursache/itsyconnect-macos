@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 // ---------- Page ----------
 
 export default function CrashesPage() {
-  const { data, loading, error, refresh } = useAnalytics();
+  const { data, loading, error, pending, refresh } = useAnalytics();
 
   const crashesByVersion = data?.crashesByVersion ?? [];
   const crashesByDevice = data?.crashesByDevice ?? [];
@@ -42,10 +42,21 @@ export default function CrashesPage() {
       ? ((1 - totalAffected / sessionDevices) * 100).toFixed(1)
       : "100";
 
-  if (loading) {
+  if (loading && !data) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
         <Spinner className="size-6 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (pending) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
+        <Spinner className="size-6 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Fetching analytics data – this may take a moment on first load
+        </p>
       </div>
     );
   }

@@ -1,0 +1,180 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { parseRange, filterByDateRange, previousRange } from "@/lib/analytics-range";
+
+// Fix "today" to 2026-02-28 for deterministic tests
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-02-28T12:00:00Z"));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+// ---------- parseRange ----------
+
+describe("parseRange", () => {
+  it("defaults to 30d when range is null", () => {
+    const r = parseRange(null);
+    expect(r.from).toBe("2026-01-30");
+    expect(r.to).toBe("2026-02-28");
+    expect(r.label).toBe("Last 30 days");
+  });
+
+  it("parses 1d preset", () => {
+    const r = parseRange("1d");
+    expect(r.from).toBe("2026-02-28");
+    expect(r.to).toBe("2026-02-28");
+    expect(r.label).toBe("Today");
+  });
+
+  it("parses 7d preset", () => {
+    const r = parseRange("7d");
+    expect(r.from).toBe("2026-02-22");
+    expect(r.to).toBe("2026-02-28");
+    expect(r.label).toBe("Last 7 days");
+  });
+
+  it("parses 30d preset", () => {
+    const r = parseRange("30d");
+    expect(r.from).toBe("2026-01-30");
+    expect(r.to).toBe("2026-02-28");
+    expect(r.label).toBe("Last 30 days");
+  });
+
+  it("parses 90d preset", () => {
+    const r = parseRange("90d");
+    expect(r.from).toBe("2025-12-01");
+    expect(r.to).toBe("2026-02-28");
+    expect(r.label).toBe("Last 90 days");
+  });
+
+  it("parses month format (2026-02)", () => {
+    const r = parseRange("2026-02");
+    expect(r.from).toBe("2026-02-01");
+    expect(r.to).toBe("2026-02-28");
+    expect(r.label).toBe("February 2026");
+  });
+
+  it("parses month format (2026-01)", () => {
+    const r = parseRange("2026-01");
+    expect(r.from).toBe("2026-01-01");
+    expect(r.to).toBe("2026-01-31");
+    expect(r.label).toBe("January 2026");
+  });
+
+  it("parses month with 30 days (2025-11)", () => {
+    const r = parseRange("2025-11");
+    expect(r.from).toBe("2025-11-01");
+    expect(r.to).toBe("2025-11-30");
+    expect(r.label).toBe("November 2025");
+  });
+
+  it("parses custom range", () => {
+    const r = parseRange("2025-12-01..2026-02-28");
+    expect(r.from).toBe("2025-12-01");
+    expect(r.to).toBe("2026-02-28");
+    expect(r.label).toMatch(/Dec 1/);
+    expect(r.label).toMatch(/Feb 28, 2026/);
+    expect(r.label).toContain("\u2013"); // en dash
+  });
+
+  it("falls back to 30d on invalid input", () => {
+    const r = parseRange("garbage");
+    expect(r.from).toBe("2026-01-30");
+    expect(r.to).toBe("2026-02-28");
+    expect(r.label).toBe("Last 30 days");
+  });
+
+  it("falls back to 30d on empty string", () => {
+    const r = parseRange("");
+    expect(r.from).toBe("2026-01-30");
+    expect(r.to).toBe("2026-02-28");
+  });
+});
+
+// ---------- filterByDateRange ----------
+
+describe("filterByDateRange", () => {
+  const data = [
+    { date: "2026-01-15", value: 1 },
+    { date: "2026-01-30", value: 2 },
+    { date: "2026-02-01", value: 3 },
+    { date: "2026-02-15", value: 4 },
+    { date: "2026-02-28", value: 5 },
+    { date: "2026-03-01", value: 6 },
+  ];
+
+  it("filters to 7d range", () => {
+    const range = parseRange("7d");
+    const result = filterByDateRange(data, range);
+    expect(result).toHaveLength(1);
+    expect(result[0].date).toBe("2026-02-28");
+  });
+
+  it("filters to 30d range", () => {
+    const range = parseRange("30d");
+    const result = filterByDateRange(data, range);
+    expect(result).toHaveLength(4);
+    expect(result.map((d) => d.date)).toEqual([
+      "2026-01-30",
+      "2026-02-01",
+      "2026-02-15",
+      "2026-02-28",
+    ]);
+  });
+
+  it("filters to month range", () => {
+    const range = parseRange("2026-02");
+    const result = filterByDateRange(data, range);
+    expect(result).toHaveLength(3);
+    expect(result.map((d) => d.date)).toEqual([
+      "2026-02-01",
+      "2026-02-15",
+      "2026-02-28",
+    ]);
+  });
+
+  it("filters to custom range", () => {
+    const range = parseRange("2026-01-15..2026-02-01");
+    const result = filterByDateRange(data, range);
+    expect(result).toHaveLength(3);
+    expect(result.map((d) => d.date)).toEqual([
+      "2026-01-15",
+      "2026-01-30",
+      "2026-02-01",
+    ]);
+  });
+
+  it("returns empty array when no data matches", () => {
+    const range = parseRange("2025-06");
+    const result = filterByDateRange(data, range);
+    expect(result).toHaveLength(0);
+  });
+});
+
+// ---------- previousRange ----------
+
+describe("previousRange", () => {
+  it("computes previous period for 7d", () => {
+    const range = parseRange("7d");
+    const prev = previousRange(range);
+    expect(prev.from).toBe("2026-02-15");
+    expect(prev.to).toBe("2026-02-21");
+  });
+
+  it("computes previous period for 30d", () => {
+    const range = parseRange("30d");
+    const prev = previousRange(range);
+    expect(prev.from).toBe("2025-12-31");
+    expect(prev.to).toBe("2026-01-29");
+  });
+
+  it("computes previous period for month", () => {
+    const range = parseRange("2026-02");
+    const prev = previousRange(range);
+    // Feb 2026 has 28 days, so previous 28-day period
+    expect(prev.from).toBe("2026-01-04");
+    expect(prev.to).toBe("2026-01-31");
+  });
+});

@@ -30,6 +30,7 @@ import {
 } from "@phosphor-icons/react";
 import { formatDate } from "@/lib/mock-analytics";
 import { useAnalytics } from "@/lib/analytics-context";
+import { parseRange, filterByDateRange, previousRange } from "@/lib/analytics-range";
 import { KpiCard } from "@/components/kpi-card";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
@@ -70,16 +71,17 @@ function pctChange(current: number, previous: number): string {
 
 export default function AnalyticsOverviewPage() {
   const searchParams = useSearchParams();
-  const days = searchParams.get("range") === "7d" ? 7 : 30;
-  const { data, loading, error, refresh } = useAnalytics();
+  const range = useMemo(() => parseRange(searchParams.get("range")), [searchParams]);
+  const prevRange = useMemo(() => previousRange(range), [range]);
+  const { data, loading, error, pending, refresh } = useAnalytics();
 
   const downloads = useMemo(
-    () => data?.dailyDownloads.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailyDownloads ?? [], range),
+    [data, range],
   );
   const revenue = useMemo(
-    () => data?.dailyRevenue.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailyRevenue ?? [], range),
+    [data, range],
   );
 
   const totalDownloads = downloads.reduce(
@@ -88,28 +90,36 @@ export default function AnalyticsOverviewPage() {
   );
   const prevDownloads = useMemo(
     () =>
-      (data?.dailyDownloads.slice(-(days * 2), -days) ?? []).reduce(
+      filterByDateRange(data?.dailyDownloads ?? [], prevRange).reduce(
         (s, d) => s + d.firstTime + d.redownload + d.update,
         0,
       ),
-    [data, days],
+    [data, prevRange],
   );
 
   const totalRevenue = revenue.reduce((s, d) => s + d.proceeds, 0);
   const prevRevenue = useMemo(
     () =>
-      (data?.dailyRevenue.slice(-(days * 2), -days) ?? []).reduce(
+      filterByDateRange(data?.dailyRevenue ?? [], prevRange).reduce(
         (s, d) => s + d.proceeds,
         0,
       ),
-    [data, days],
+    [data, prevRange],
   );
 
   const totalFirstTime = downloads.reduce((s, d) => s + d.firstTime, 0);
+  const prevFirstTime = useMemo(
+    () =>
+      filterByDateRange(data?.dailyDownloads ?? [], prevRange).reduce(
+        (s, d) => s + d.firstTime,
+        0,
+      ),
+    [data, prevRange],
+  );
 
   const sessionSlice = useMemo(
-    () => data?.dailySessions.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailySessions ?? [], range),
+    [data, range],
   );
   const totalDevices = sessionSlice.reduce((s, d) => s + d.uniqueDevices, 0);
   const crashDevices = (data?.crashesByVersion ?? []).reduce(
@@ -122,8 +132,8 @@ export default function AnalyticsOverviewPage() {
       : "100";
 
   const engagement = useMemo(
-    () => data?.dailyEngagement.slice(-days) ?? [],
-    [data, days],
+    () => filterByDateRange(data?.dailyEngagement ?? [], range),
+    [data, range],
   );
   const totalImpressions = engagement.reduce((s, d) => s + d.impressions, 0);
   const totalPageViews = engagement.reduce((s, d) => s + d.pageViews, 0);
@@ -134,10 +144,21 @@ export default function AnalyticsOverviewPage() {
     { stage: "downloads", value: totalFirstTime },
   ];
 
-  if (loading) {
+  if (loading && !data) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
         <Spinner className="size-6 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (pending) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
+        <Spinner className="size-6 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Fetching analytics data – this may take a moment on first load
+        </p>
       </div>
     );
   }
@@ -154,6 +175,20 @@ export default function AnalyticsOverviewPage() {
   }
 
   if (!data) return null;
+
+  const isEmpty = data.dailyDownloads.length === 0
+    && data.dailySessions.length === 0
+    && data.dailyEngagement.length === 0;
+
+  if (isEmpty) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
+        <p className="text-sm text-muted-foreground">
+          No analytics data available for this app
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -174,13 +209,7 @@ export default function AnalyticsOverviewPage() {
         <KpiCard
           title="First-time downloads"
           value={totalFirstTime.toLocaleString()}
-          subtitle={`${pctChange(
-            totalFirstTime,
-            (data.dailyDownloads.slice(-(days * 2), -days) ?? []).reduce(
-              (s, d) => s + d.firstTime,
-              0,
-            ),
-          )} from previous period`}
+          subtitle={`${pctChange(totalFirstTime, prevFirstTime)} from previous period`}
           icon={Timer}
         />
         <KpiCard

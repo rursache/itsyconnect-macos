@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { buildAnalyticsData } from "@/lib/asc/analytics";
+import { getAnalyticsData } from "@/lib/asc/analytics";
 import { hasCredentials } from "@/lib/asc/client";
-import { cacheGetMeta } from "@/lib/cache";
 import { getMockAnalyticsData } from "@/lib/mock-analytics";
 
 export async function GET(
@@ -14,15 +13,12 @@ export async function GET(
     return NextResponse.json({ data: getMockAnalyticsData(appId), meta: null });
   }
 
-  const url = new URL(request.url);
-  const forceRefresh = url.searchParams.get("refresh") === "true";
+  const result = await getAnalyticsData(appId);
 
-  try {
-    const data = await buildAnalyticsData(appId, forceRefresh);
-    const meta = cacheGetMeta(`analytics:${appId}`);
-    return NextResponse.json({ data, meta });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+  if (result.status === "pending") {
+    // Background worker hasn't fetched this app yet
+    return NextResponse.json({ data: null, pending: true });
   }
+
+  return NextResponse.json({ data: result.data, meta: result.meta });
 }

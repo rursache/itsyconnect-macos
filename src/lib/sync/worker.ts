@@ -40,17 +40,18 @@ async function runJob(schedule: SyncSchedule): Promise<void> {
   await promise;
 }
 
-let started = false;
+let running = false;
 
 export function startSyncWorker(): void {
-  if (started) return;
-  started = true;
-
   // Don't start if no credentials
   if (!hasCredentials()) {
     console.log("[sync] No ASC credentials – worker dormant");
     return;
   }
+
+  // Already running with timers – nothing to do
+  if (running) return;
+  running = true;
 
   console.log("[sync] Starting background sync worker");
 
@@ -73,7 +74,7 @@ export function stopSyncWorker(): void {
       schedule.timer = null;
     }
   }
-  started = false;
+  running = false;
 }
 
 export function getSyncStatus(): Array<{

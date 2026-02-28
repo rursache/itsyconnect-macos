@@ -1,9 +1,10 @@
 import { gunzipSync } from "node:zlib";
 import { ascFetch } from "./client";
-import { cacheGet, cacheSet } from "@/lib/cache";
+import { cacheGet, cacheGetMeta, cacheSet } from "@/lib/cache";
 import type { AnalyticsData } from "@/lib/mock-analytics";
 
-const ANALYTICS_TTL = 60 * 60 * 1000; // 1 hour
+const ANALYTICS_TTL = 24 * 60 * 60 * 1000; // 24 hours (sync worker refreshes hourly)
+const REPORT_ID_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days (report request/report IDs never change)
 const INSTANCE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days (immutable past data)
 const TODAY_TTL = 10 * 60 * 1000; // 10 min (today's data may update)
 
@@ -58,9 +59,19 @@ const reportRequestIdsCache = new Map<string, string[]>();
 const reportIdCache = new Map<string, string>();
 
 async function findReportRequestIds(appId: string): Promise<string[]> {
-  const cached = reportRequestIdsCache.get(appId);
-  if (cached) return cached;
+  // Tier 1: in-memory
+  const memCached = reportRequestIdsCache.get(appId);
+  if (memCached) return memCached;
 
+  // Tier 2: SQLite
+  const dbKey = `asc-report-requests:${appId}`;
+  const dbCached = cacheGet<string[]>(dbKey);
+  if (dbCached) {
+    reportRequestIdsCache.set(appId, dbCached);
+    return dbCached;
+  }
+
+  // Tier 3: API
   const response = await ascFetch<AscListResponse<AscReportRequest>>(
     `/v1/apps/${appId}/analyticsReportRequests`,
   );
@@ -75,6 +86,7 @@ async function findReportRequestIds(appId: string): Promise<string[]> {
     response.data.map((r) => `${r.id} (${r.attributes.accessType})`));
 
   reportRequestIdsCache.set(appId, ids);
+  cacheSet(dbKey, ids, REPORT_ID_TTL);
   return ids;
 }
 
@@ -84,38 +96,95 @@ async function findReportId(
   reportName: string,
 ): Promise<string | null> {
   const key = `${requestId}:${reportName}`;
-  const cached = reportIdCache.get(key);
-  if (cached) return cached;
 
+  // Tier 1: in-memory
+  const memCached = reportIdCache.get(key);
+  if (memCached) return memCached;
+
+  // Tier 2: SQLite
+  const dbKey = `asc-report-id:${key}`;
+  const dbCached = cacheGet<string>(dbKey);
+  if (dbCached) {
+    reportIdCache.set(key, dbCached);
+    return dbCached;
+  }
+
+  // Tier 3: API
   const reportsResp = await ascFetch<AscListResponse<AscReport>>(
     `/v1/analyticsReportRequests/${requestId}/reports?filter[category]=${category}`,
   );
 
   // Cache all reports from this category for this request
   for (const r of reportsResp.data) {
-    reportIdCache.set(`${requestId}:${r.attributes.name}`, r.id);
+    const rKey = `${requestId}:${r.attributes.name}`;
+    reportIdCache.set(rKey, r.id);
+    cacheSet(`asc-report-id:${rKey}`, r.id, REPORT_ID_TTL);
   }
 
   return reportIdCache.get(key) ?? null;
 }
 
+// ---------- Concurrency limiter for S3 downloads ----------
+
+// All report types share this limiter so we don't overwhelm S3
+// when 8 fetchReportData calls run in parallel.
+const MAX_CONCURRENT_DOWNLOADS = 6;
+let activeDownloads = 0;
+const downloadQueue: Array<() => void> = [];
+
+async function withDownloadSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (activeDownloads >= MAX_CONCURRENT_DOWNLOADS) {
+    await new Promise<void>((resolve) => downloadQueue.push(resolve));
+  }
+  activeDownloads++;
+  try {
+    return await fn();
+  } finally {
+    activeDownloads--;
+    downloadQueue.shift()?.();
+  }
+}
+
 // ---------- Segment download ----------
 
+const SEGMENT_MAX_RETRIES = 3;
+const SEGMENT_RETRY_DELAY_MS = 1000;
+
 async function downloadSegment(url: string): Promise<string> {
-  // Pre-signed S3 URL – no auth header
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Segment download failed: ${response.status}`);
-  }
+  // Pre-signed S3 URL – no auth header, retry on transient network errors
+  return withDownloadSlot(async () => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < SEGMENT_MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Segment download failed: ${response.status}`);
+        }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
+        const buffer = Buffer.from(await response.arrayBuffer());
 
-  // Try gzip decompression; if it fails, treat as plain text
-  try {
-    return gunzipSync(buffer).toString("utf-8");
-  } catch {
-    return buffer.toString("utf-8");
-  }
+        // Try gzip decompression; if it fails, treat as plain text
+        try {
+          return gunzipSync(buffer).toString("utf-8");
+        } catch {
+          return buffer.toString("utf-8");
+        }
+      } catch (err) {
+        lastError = err;
+        const msg = err instanceof Error
+          ? err.message + String((err as NodeJS.ErrnoException).cause ?? "")
+          : "";
+        const isTransient =
+          err instanceof TypeError ||
+          /ECONNRESET|ETIMEDOUT|ENOTFOUND|socket hang up/i.test(msg);
+        if (!isTransient) throw err;
+        if (attempt < SEGMENT_MAX_RETRIES - 1) {
+          await new Promise((r) => setTimeout(r, SEGMENT_RETRY_DELAY_MS * (attempt + 1)));
+        }
+      }
+    }
+    throw lastError;
+  });
 }
 
 // ---------- Per-instance fetching with caching ----------
@@ -143,6 +212,7 @@ async function fetchReportData(
   reportName: string,
   granularity: string,
   limit: number,
+  maxInstances = limit,
 ): Promise<Array<Record<string, string>>> {
   const today = new Date().toISOString().slice(0, 10);
 
@@ -155,19 +225,28 @@ async function fetchReportData(
     const reportId = await findReportId(requestId, category, reportName);
     if (!reportId) continue;
 
-    const instancesResp = await ascFetch<AscListResponse<AscReportInstance>>(
-      `/v1/analyticsReports/${reportId}/instances?filter[granularity]=${granularity}&limit=${limit}`,
-    );
+    // Paginate through all instances up to maxInstances
+    let url: string | undefined =
+      `/v1/analyticsReports/${reportId}/instances?filter[granularity]=${granularity}&limit=${Math.min(limit, 200)}`;
+    let pageCount = 0;
 
-    console.log(`[analytics] ${reportName} from request ${requestId}: ${instancesResp.data.length} instances`);
+    while (url && uniqueInstances.length < maxInstances) {
+      const resp: AscListResponse<AscReportInstance> =
+        await ascFetch<AscListResponse<AscReportInstance>>(url);
+      pageCount++;
 
-    for (const inst of instancesResp.data) {
-      const date = inst.attributes.processingDate;
-      if (!seenDates.has(date)) {
-        seenDates.add(date);
-        uniqueInstances.push(inst);
+      for (const inst of resp.data) {
+        const date = inst.attributes.processingDate;
+        if (!seenDates.has(date)) {
+          seenDates.add(date);
+          uniqueInstances.push(inst);
+        }
       }
+
+      url = resp.links?.next;
     }
+
+    console.log(`[analytics] ${reportName} from request ${requestId}: ${pageCount} page(s)`);
   }
 
   console.log(`[analytics] ${reportName}: ${uniqueInstances.length} unique instances across ${requestIds.length} requests`);
@@ -176,32 +255,30 @@ async function fetchReportData(
 
   // For each instance: use per-instance cache (past days are immutable),
   // only download if missing or today (today's data may still update).
-  const allRows: Array<Record<string, string>> = [];
+  // All instances are launched concurrently but the global download
+  // semaphore (MAX_CONCURRENT_DOWNLOADS) limits actual S3 requests.
+  const results = await Promise.allSettled(
+    uniqueInstances.map(async (instance) => {
+      const instanceKey = `analytics-inst:${instance.id}`;
+      const isToday = instance.attributes.processingDate === today;
 
-  for (let i = 0; i < uniqueInstances.length; i += 5) {
-    const batch = uniqueInstances.slice(i, i + 5);
-    const batchResults = await Promise.allSettled(
-      batch.map(async (instance) => {
-        const instanceKey = `analytics-inst:${instance.id}`;
-        const isToday = instance.attributes.processingDate === today;
-
-        if (!isToday) {
-          const cached = cacheGet<Array<Record<string, string>>>(instanceKey);
-          if (cached) return cached;
-        }
-
-        const rows = await downloadInstanceRows(instance.id);
-        cacheSet(instanceKey, rows, isToday ? TODAY_TTL : INSTANCE_TTL);
-        return rows;
-      }),
-    );
-
-    for (const result of batchResults) {
-      if (result.status === "fulfilled") {
-        allRows.push(...result.value);
-      } else {
-        console.warn(`[analytics] Instance download failed:`, result.reason);
+      if (!isToday) {
+        const cached = cacheGet<Array<Record<string, string>>>(instanceKey);
+        if (cached) return cached;
       }
+
+      const rows = await downloadInstanceRows(instance.id);
+      cacheSet(instanceKey, rows, isToday ? TODAY_TTL : INSTANCE_TTL);
+      return rows;
+    }),
+  );
+
+  const allRows: Array<Record<string, string>> = [];
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      allRows.push(...result.value);
+    } else {
+      console.warn(`[analytics] Instance download failed:`, result.reason);
     }
   }
 
@@ -490,6 +567,11 @@ function emptyAnalyticsData(): AnalyticsData {
 
 // ---------- Main entry point ----------
 
+// Per-app dedup: if the same appId is already being fetched, join it.
+// User-initiated requests (API route) run immediately; the sync worker
+// serializes its own fetches via syncAnalytics' sequential loop.
+const inFlightBuilds = new Map<string, Promise<AnalyticsData>>();
+
 export async function buildAnalyticsData(
   appId: string,
   forceRefresh = false,
@@ -500,6 +582,74 @@ export async function buildAnalyticsData(
     const cached = cacheGet<AnalyticsData>(cacheKey);
     if (cached) return cached;
   }
+
+  // If a fetch is already in-flight for this app, join it
+  const existing = inFlightBuilds.get(appId);
+  if (existing) {
+    console.log(`[analytics] Joining in-flight fetch for ${appId}`);
+    return existing;
+  }
+
+  console.log(`[analytics] Starting fetch for ${appId}...`);
+  const startTime = Date.now();
+
+  const promise = buildAnalyticsDataInner(appId, cacheKey)
+    .then((data) => {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(
+        `[analytics] Fetch complete for ${appId} in ${elapsed}s:`,
+        `downloads=${data.dailyDownloads.length}d`,
+        `sessions=${data.dailySessions.length}d`,
+        `crashes=${data.crashesByVersion.length} versions`,
+      );
+      return data;
+    })
+    .catch((err) => {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.error(`[analytics] Fetch failed for ${appId} after ${elapsed}s:`, err);
+      throw err;
+    });
+
+  inFlightBuilds.set(appId, promise);
+  promise.finally(() => inFlightBuilds.delete(appId));
+  return promise;
+}
+
+// ---------- Read-only accessor for API routes ----------
+// Returns cached data, joins an in-flight fetch, or signals "pending"
+// (background worker hasn't reached this app yet). Never starts a fetch.
+
+type AnalyticsResult =
+  | { status: "ready"; data: AnalyticsData; meta: { fetchedAt: number; ttlMs: number } | null }
+  | { status: "pending" };
+
+export async function getAnalyticsData(appId: string): Promise<AnalyticsResult> {
+  const cacheKey = `analytics:${appId}`;
+
+  // Serve from cache (even if stale – the bg worker will refresh it)
+  const meta = cacheGetMeta(cacheKey);
+  if (meta) {
+    const data = cacheGet<AnalyticsData>(cacheKey, true);
+    if (data) return { status: "ready", data, meta };
+  }
+
+  // If the bg worker is currently fetching this app, wait for it
+  const inFlight = inFlightBuilds.get(appId);
+  if (inFlight) {
+    console.log(`[analytics] API joining in-flight fetch for ${appId}`);
+    const data = await inFlight;
+    const freshMeta = cacheGetMeta(cacheKey);
+    return { status: "ready", data, meta: freshMeta };
+  }
+
+  // Not cached and not in-flight – bg worker hasn't gotten here yet
+  return { status: "pending" };
+}
+
+async function buildAnalyticsDataInner(
+  appId: string,
+  cacheKey: string,
+): Promise<AnalyticsData> {
 
   const requestIds = await findReportRequestIds(appId);
   if (requestIds.length === 0) {
@@ -524,14 +674,14 @@ export async function buildAnalyticsData(
     optInRows,
     crashRows,
   ] = await Promise.all([
-    fetchReportData(requestIds, "COMMERCE", "App Downloads Standard", "DAILY", 60),
-    fetchReportData(requestIds, "COMMERCE", "App Store Purchases Standard", "DAILY", 60),
-    fetchReportData(requestIds, "APP_STORE_ENGAGEMENT", "App Store Discovery and Engagement Standard", "DAILY", 60),
-    fetchReportData(requestIds, "APP_STORE_ENGAGEMENT", "App Store Web Preview Engagement Standard", "DAILY", 60),
-    fetchReportData(requestIds, "APP_USAGE", "App Sessions Standard", "DAILY", 60),
-    fetchReportData(requestIds, "APP_USAGE", "App Store Installation and Deletion Standard", "DAILY", 60),
-    fetchReportData(requestIds, "APP_USAGE", "App Opt In", "DAILY", 60),
-    fetchReportData(requestIds, "APP_USAGE", "App Crashes", "MONTHLY", 12),
+    fetchReportData(requestIds, "COMMERCE", "App Downloads Standard", "DAILY", 200, 365),
+    fetchReportData(requestIds, "COMMERCE", "App Store Purchases Standard", "DAILY", 200, 365),
+    fetchReportData(requestIds, "APP_STORE_ENGAGEMENT", "App Store Discovery and Engagement Standard", "DAILY", 200, 365),
+    fetchReportData(requestIds, "APP_STORE_ENGAGEMENT", "App Store Web Preview Engagement Standard", "DAILY", 200, 365),
+    fetchReportData(requestIds, "APP_USAGE", "App Sessions Standard", "DAILY", 200, 365),
+    fetchReportData(requestIds, "APP_USAGE", "App Store Installation and Deletion Standard", "DAILY", 200, 365),
+    fetchReportData(requestIds, "APP_USAGE", "App Opt In", "DAILY", 200, 365),
+    fetchReportData(requestIds, "APP_USAGE", "App Crashes", "MONTHLY", 24, 24),
   ]);
 
   // Filter rows by app's Apple ID (numeric) if present
@@ -569,13 +719,6 @@ export async function buildAnalyticsData(
     crashesByVersion: aggregateCrashesByVersion(filteredCrashes),
     crashesByDevice: aggregateCrashesByDevice(filteredCrashes),
   };
-
-  console.log(`[analytics] Built analytics data for ${appId}:`,
-    `downloads=${data.dailyDownloads.length}d`,
-    `sessions=${data.dailySessions.length}d`,
-    `engagement=${data.dailyEngagement.length}d`,
-    `installs=${data.dailyInstallsDeletes.length}d`,
-  );
 
   cacheSet(cacheKey, data, ANALYTICS_TTL);
   return data;
