@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApps } from "@/lib/apps-context";
+import { getLastUrl } from "@/lib/nav-state";
 import { AppWindow } from "@phosphor-icons/react";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -12,7 +13,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!loading && apps.length > 0) {
-      router.replace(`/dashboard/apps/${apps[0].id}`);
+      const saved = getLastUrl();
+      const appIds = new Set(apps.map((a) => a.id));
+      // Validate saved URL references an app that still exists
+      const savedAppId = saved
+        ?.match(/^\/dashboard\/apps\/([^/?]+)/)?.[1];
+      const target =
+        saved && savedAppId && appIds.has(savedAppId)
+          ? saved
+          : `/dashboard/apps/${apps[0].id}`;
+      router.replace(target);
     }
   }, [apps, loading, router]);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { DashboardBreadcrumb } from "@/components/layout/dashboard-breadcrumb";
@@ -14,6 +15,7 @@ import { FormDirtyProvider } from "@/lib/form-dirty-context";
 import { HeaderLocaleProvider } from "@/lib/header-locale-context";
 import { SubmissionChecklistProvider } from "@/lib/submission-checklist-context";
 import { RefreshProvider } from "@/lib/refresh-context";
+import { saveNavigation } from "@/lib/nav-state";
 
 declare global {
   interface Window {
@@ -35,6 +37,17 @@ function ReadySignal() {
   return null;
 }
 
+function NavigationTracker() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    saveNavigation(pathname, searchParams.toString());
+  }, [pathname, searchParams]);
+
+  return null;
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -48,6 +61,9 @@ export default function DashboardLayout({
       <SubmissionChecklistProvider>
       <RefreshProvider>
       <ReadySignal />
+      <Suspense>
+        <NavigationTracker />
+      </Suspense>
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset className="h-screen overflow-hidden">

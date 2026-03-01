@@ -6,6 +6,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useApps } from "@/lib/apps-context";
 import { useFormDirty } from "@/lib/form-dirty-context";
 import { AppIcon } from "@/components/app-icon";
+import { getAppState } from "@/lib/nav-state";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,11 +37,15 @@ export function AppSwitcher() {
   ]);
 
   function buildAppUrl(targetAppId: string): string {
+    const saved = getAppState(targetAppId);
+    if (saved) return `/dashboard/apps/${targetAppId}${saved}`;
+
+    // Fallback: sticky subpage logic for never-visited apps
     if (!appId) return `/dashboard/apps/${targetAppId}`;
     const subpath = pathname.replace(`/dashboard/apps/${appId}`, "").replace(/^\//, "");
     const topSegment = subpath.split("/")[0];
     if (topSegment && STICKY_SUBPAGES.has(topSegment)) {
-      return `/dashboard/apps/${targetAppId}/${subpath}`;
+      return `/dashboard/apps/${targetAppId}/${topSegment}`;
     }
     return `/dashboard/apps/${targetAppId}`;
   }
