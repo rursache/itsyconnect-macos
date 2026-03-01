@@ -11,6 +11,7 @@ export type {
 
 export {
   listBuilds,
+  fetchBuildMetrics,
   updateBetaBuildLocalization,
   addBuildToGroups,
   removeBuildFromGroups,
@@ -25,6 +26,8 @@ export {
   listAppBetaTesters,
   addIndividualTestersToBuild,
   removeIndividualTestersFromBuild,
+  addTestersToGroup,
+  removeTestersFromGroup,
   createBetaTester,
   sendBetaTesterInvitations,
 } from "./testers";

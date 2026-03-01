@@ -46,6 +46,27 @@ The shadcn `Card` component has `py-6 gap-6` built in. When using `CardContent` 
 
 The Card's default `py-6` is too generous for most list items and compact cards. Always zero it out and control padding from `CardContent` instead.
 
+### Pagination
+
+Use `<PaginatedList>` from `src/components/paginated-list.tsx` for client-side pagination. All data is loaded upfront and sliced in the browser.
+
+```tsx
+import { PaginatedList } from "@/components/paginated-list";
+
+const [currentPage, setCurrentPage] = useState(1);
+
+<PaginatedList items={items} perPage={20} currentPage={currentPage} onPageChange={setCurrentPage}>
+  {(pageItems) => (
+    /* render pageItems */
+  )}
+</PaginatedList>
+```
+
+Key rules:
+- Uses shadcn `Pagination` primitives (prev/next, page numbers, ellipsis)
+- Pagination controls render only when `totalPages > 1`
+- Reset `currentPage` to 1 when filters change or data is re-fetched
+
 ## Forms
 
 ### Text inputs inside cards

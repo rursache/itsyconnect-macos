@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { PaginatedList } from "@/components/paginated-list";
 import { CircleNotch, ArrowClockwise, CaretDown, Prohibit, Plus, Minus } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-fetch";
@@ -78,11 +79,13 @@ export default function TestFlightBuildsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [expireOpen, setExpireOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     setSelected(new Set());
+    setCurrentPage(1);
     try {
       const params = new URLSearchParams();
       if (forceRefresh) params.set("refresh", "1");
@@ -132,10 +135,16 @@ export default function TestFlightBuildsPage() {
     return { total, firstDate, latestDate };
   }, [builds]);
 
-  // Selection helpers
+  // Pagination – compute current page slice for selection scoping
+  const perPage = 20;
+  const totalPages = Math.max(1, Math.ceil(builds.length / perPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageBuilds = builds.slice((safePage - 1) * perPage, safePage * perPage);
+
+  // Selection helpers – scoped to current page
   const selectableBuilds = useMemo(
-    () => builds.filter((b) => !b.expired),
-    [builds],
+    () => pageBuilds.filter((b) => !b.expired),
+    [pageBuilds],
   );
 
   const allSelected = selectableBuilds.length > 0 && selectableBuilds.every((b) => selected.has(b.id));
@@ -143,9 +152,17 @@ export default function TestFlightBuildsPage() {
 
   function toggleAll() {
     if (allSelected) {
-      setSelected(new Set());
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const b of selectableBuilds) next.delete(b.id);
+        return next;
+      });
     } else {
-      setSelected(new Set(selectableBuilds.map((b) => b.id)));
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const b of selectableBuilds) next.add(b.id);
+        return next;
+      });
     }
   }
 
@@ -303,118 +320,127 @@ export default function TestFlightBuildsPage() {
         </div>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-10">
-              <Checkbox
-                checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                onCheckedChange={toggleAll}
-                onClick={(e) => e.stopPropagation()}
-                aria-label="Select all builds"
-              />
-            </TableHead>
-            <TableHead>Build</TableHead>
-            <TableHead>Version</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Groups</TableHead>
-            <TableHead className="text-right">Installs</TableHead>
-            <TableHead className="text-right">Sessions</TableHead>
-            <TableHead className="text-right">Crashes</TableHead>
-            <TableHead className="text-right">Uploaded</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {builds.map((build) => {
-            const buildGroups = groups.filter((g) =>
-              build.groupIds.includes(g.id),
-            );
-
-            return (
-              <TableRow
-                key={build.id}
-                className="cursor-pointer"
-                data-state={selected.has(build.id) ? "selected" : undefined}
-                onClick={() => {
-                  const qs = searchParams.toString();
-                  const url = `/dashboard/apps/${appId}/testflight/${build.id}${qs ? `?${qs}` : ""}`;
-                  router.push(url);
-                }}
-              >
-                <TableCell>
-                  {!build.expired && (
-                    <Checkbox
-                      checked={selected.has(build.id)}
-                      onCheckedChange={() => toggleOne(build.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={`Select build ${build.buildNumber}`}
-                    />
-                  )}
-                </TableCell>
-                <TableCell className="font-medium">
-                  {build.buildNumber}
-                </TableCell>
-                <TableCell>
-                  <div>
-                    <span className="text-sm">{build.versionString}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {PLATFORM_LABELS[build.platform] ?? build.platform}
-                  </p>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`inline-block size-2 shrink-0 rounded-full ${STATUS_DOTS[build.status] ?? "bg-gray-400"}`}
-                    />
-                    <span className="text-sm">{build.status}</span>
-                  </div>
-                  {build.expired && build.expirationDate && (
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(build.expirationDate)}
-                    </p>
-                  )}
-                  {!build.expired && build.expirationDate && build.status === "Testing" && (
-                    <p className="text-xs text-muted-foreground">
-                      Expires {formatDate(build.expirationDate)}
-                    </p>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {build.expired ? (
-                    <span className="text-sm text-muted-foreground">&ndash;</span>
-                  ) : buildGroups.length > 0 ? (
-                    <div className="space-y-0.5">
-                      {buildGroups.map((g) => (
-                        <div key={g.id} className="flex items-center gap-1.5 text-sm">
-                          <span className={`inline-flex size-4 items-center justify-center rounded text-[10px] font-medium ${g.isInternal ? "bg-muted text-muted-foreground" : "bg-blue-100 text-blue-700"}`}>
-                            {g.isInternal ? "I" : "E"}
-                          </span>
-                          <span>{g.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">&ndash;</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {build.expired ? "–" : build.installs > 0 ? build.installs : "–"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {build.expired ? "–" : build.sessions > 0 ? build.sessions : "–"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {build.expired ? "–" : build.crashes > 0 ? build.crashes : "–"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {formatDate(build.uploadedDate)}
-                </TableCell>
+      <PaginatedList
+        items={builds}
+        perPage={perPage}
+        currentPage={currentPage}
+        onPageChange={(page) => { setCurrentPage(page); setSelected(new Set()); }}
+      >
+        {(pageItems) => (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                    onCheckedChange={toggleAll}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="Select all builds"
+                  />
+                </TableHead>
+                <TableHead>Build</TableHead>
+                <TableHead>Version</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Groups</TableHead>
+                <TableHead className="text-right">Installs</TableHead>
+                <TableHead className="text-right">Sessions</TableHead>
+                <TableHead className="text-right">Crashes</TableHead>
+                <TableHead className="text-right">Uploaded</TableHead>
               </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+            </TableHeader>
+            <TableBody>
+              {pageItems.map((build) => {
+                const buildGroups = groups.filter((g) =>
+                  build.groupIds.includes(g.id),
+                );
+
+                return (
+                  <TableRow
+                    key={build.id}
+                    className="cursor-pointer"
+                    data-state={selected.has(build.id) ? "selected" : undefined}
+                    onClick={() => {
+                      const qs = searchParams.toString();
+                      const url = `/dashboard/apps/${appId}/testflight/${build.id}${qs ? `?${qs}` : ""}`;
+                      router.push(url);
+                    }}
+                  >
+                    <TableCell>
+                      {!build.expired && (
+                        <Checkbox
+                          checked={selected.has(build.id)}
+                          onCheckedChange={() => toggleOne(build.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Select build ${build.buildNumber}`}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {build.buildNumber}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <span className="text-sm">{build.versionString}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {PLATFORM_LABELS[build.platform] ?? build.platform}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block size-2 shrink-0 rounded-full ${STATUS_DOTS[build.status] ?? "bg-gray-400"}`}
+                        />
+                        <span className="text-sm">{build.status}</span>
+                      </div>
+                      {build.expired && build.expirationDate && (
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(build.expirationDate)}
+                        </p>
+                      )}
+                      {!build.expired && build.expirationDate && build.status === "Testing" && (
+                        <p className="text-xs text-muted-foreground">
+                          Expires {formatDate(build.expirationDate)}
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {build.expired ? (
+                        <span className="text-sm text-muted-foreground">&ndash;</span>
+                      ) : buildGroups.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {buildGroups.map((g) => (
+                            <div key={g.id} className="flex items-center gap-1.5 text-sm">
+                              <span className={`inline-flex size-4 items-center justify-center rounded text-[10px] font-medium ${g.isInternal ? "bg-muted text-muted-foreground" : "bg-blue-100 text-blue-700"}`}>
+                                {g.isInternal ? "I" : "E"}
+                              </span>
+                              <span>{g.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">&ndash;</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {build.expired ? "–" : build.installs > 0 ? build.installs : "–"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {build.expired ? "–" : build.sessions > 0 ? build.sessions : "–"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {build.expired ? "–" : build.crashes > 0 ? build.crashes : "–"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {formatDate(build.uploadedDate)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </PaginatedList>
 
       {/* Bulk action bar */}
       {selected.size > 0 && (

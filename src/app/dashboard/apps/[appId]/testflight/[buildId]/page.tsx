@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { CircleNotch, ArrowClockwise, Plus, X, UserPlus, MagnifyingGlass } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useRegisterRefresh } from "@/lib/refresh-context";
+import { useSetBreadcrumbTitle } from "@/lib/breadcrumb-context";
 import { useFormDirty } from "@/lib/form-dirty-context";
 import { AppIcon } from "@/components/app-icon";
 import { CharCount } from "@/components/char-count";
@@ -108,6 +109,7 @@ export default function BuildDetailPage() {
 
   const handleRefresh = useCallback(() => fetchData(true), [fetchData]);
   useRegisterRefresh({ onRefresh: handleRefresh, busy: loading });
+  useSetBreadcrumbTitle(build ? `Build ${build.buildNumber}` : null);
 
   // Report build state to footer context
   useEffect(() => {

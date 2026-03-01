@@ -15,15 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-  PaginationEllipsis,
-} from "@/components/ui/pagination";
+import { PaginatedList } from "@/components/paginated-list";
 import {
   Dialog,
   DialogContent,
@@ -325,14 +317,6 @@ export default function ReviewsPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [ratingFilter, territoryFilter, hideResponded, sortBy]);
-
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedReviews = filtered.slice(
-    (safePage - 1) * perPage,
-    safePage * perPage,
-  );
 
   // Summary stats (from all reviews, not filtered)
   const total = reviews.length;
@@ -746,225 +730,176 @@ export default function ReviewsPage() {
             : "No reviews match the current filters."}
         </div>
       ) : (
-        <div className="space-y-4">
-          {paginatedReviews.map((review) => {
-            const foreign = NON_ENGLISH_TERRITORIES.has(review.territory);
-            const translated =
-              showTranslation[review.id] && translations[review.id];
-            const isTranslating = translating[review.id];
+        <PaginatedList
+          items={filtered}
+          perPage={perPage}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+        >
+          {(pageReviews) => (
+            <div className="space-y-4">
+              {pageReviews.map((review) => {
+                const foreign = NON_ENGLISH_TERRITORIES.has(review.territory);
+                const translated =
+                  showTranslation[review.id] && translations[review.id];
+                const isTranslating = translating[review.id];
 
-            return (
-              <Card key={review.id}>
-                <CardContent className="space-y-2 py-0">
-                  {/* Header: stars + title + date */}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <Stars rating={review.rating} size={12} />
-                      <p className="text-sm font-semibold">
-                        {translated
-                          ? translations[review.id].title
-                          : review.title}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {new Date(review.createdDate).toLocaleDateString(
-                        "en-GB",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        },
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Body */}
-                  <p className="text-sm">
-                    {translated
-                      ? translations[review.id].body
-                      : review.body}
-                  </p>
-
-                  {/* Translation toggle */}
-                  {foreign && (
-                    <button
-                      type="button"
-                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                      onClick={() => handleTranslate(review)}
-                      disabled={isTranslating}
-                    >
-                      {isTranslating ? (
-                        <CircleNotch
-                          size={14}
-                          className="animate-spin"
-                        />
-                      ) : (
-                        <Translate size={14} />
-                      )}
-                      {isTranslating
-                        ? "Translating…"
-                        : translated
-                          ? "Show original"
-                          : "Translate"}
-                    </button>
-                  )}
-
-                  {/* Footer: author + territory + actions */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      {review.reviewerNickname} &middot;{" "}
-                      {territoryName(review.territory)}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {review.rating <= 2 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-muted-foreground"
-                          onClick={() => handleAppeal(review)}
-                        >
-                          <WarningCircle size={14} className="mr-1.5" />
-                          Appeal review
-                        </Button>
-                      )}
-                      {!review.response && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setReplyTarget(review);
-                            setReplyBody("");
-                          }}
-                        >
-                          <ChatText size={14} className="mr-1.5" />
-                          Reply
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Developer response */}
-                  {review.response && (
-                    <div className="rounded-lg border bg-muted/50 px-4 py-3 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-medium">
-                            Developer response
+                return (
+                  <Card key={review.id}>
+                    <CardContent className="space-y-2 py-0">
+                      {/* Header: stars + title + date */}
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1">
+                          <Stars rating={review.rating} size={12} />
+                          <p className="text-sm font-semibold">
+                            {translated
+                              ? translations[review.id].title
+                              : review.title}
                           </p>
-                          {review.response.state === "PENDING_PUBLISH" && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] px-1.5 py-0"
-                            >
-                              Pending
-                            </Badge>
-                          )}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground"
-                            onClick={() => {
-                              setReplyTarget(review);
-                              setReplyBody(review.response!.responseBody);
-                              setEditingResponseId(review.response!.id);
-                            }}
-                          >
-                            <PencilSimple size={12} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteResponse(review.id, review.response!.id)}
-                            disabled={deletingResponseId === review.response!.id}
-                          >
-                            {deletingResponseId === review.response!.id ? (
-                              <CircleNotch size={12} className="animate-spin" />
-                            ) : (
-                              <Trash size={12} />
-                            )}
-                          </Button>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(
-                              review.response.lastModifiedDate,
-                            ).toLocaleDateString("en-GB", {
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {new Date(review.createdDate).toLocaleDateString(
+                            "en-GB",
+                            {
                               day: "numeric",
                               month: "short",
                               year: "numeric",
-                            })}
-                          </span>
+                            },
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Body */}
+                      <p className="text-sm">
+                        {translated
+                          ? translations[review.id].body
+                          : review.body}
+                      </p>
+
+                      {/* Translation toggle */}
+                      {foreign && (
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                          onClick={() => handleTranslate(review)}
+                          disabled={isTranslating}
+                        >
+                          {isTranslating ? (
+                            <CircleNotch
+                              size={14}
+                              className="animate-spin"
+                            />
+                          ) : (
+                            <Translate size={14} />
+                          )}
+                          {isTranslating
+                            ? "Translating…"
+                            : translated
+                              ? "Show original"
+                              : "Translate"}
+                        </button>
+                      )}
+
+                      {/* Footer: author + territory + actions */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {review.reviewerNickname} &middot;{" "}
+                          {territoryName(review.territory)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {review.rating <= 2 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-muted-foreground"
+                              onClick={() => handleAppeal(review)}
+                            >
+                              <WarningCircle size={14} className="mr-1.5" />
+                              Appeal review
+                            </Button>
+                          )}
+                          {!review.response && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setReplyTarget(review);
+                                setReplyBody("");
+                              }}
+                            >
+                              <ChatText size={14} className="mr-1.5" />
+                              Reply
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <p className="text-sm">
-                        {review.response.responseBody}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                aria-disabled={safePage <= 1}
-                className={safePage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-              // Show first, last, current, and adjacent pages; ellipsis for gaps
-              if (
-                page === 1 ||
-                page === totalPages ||
-                Math.abs(page - safePage) <= 1
-              ) {
-                return (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      isActive={page === safePage}
-                      onClick={() => setCurrentPage(page)}
-                      className="cursor-pointer"
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
+                      {/* Developer response */}
+                      {review.response && (
+                        <div className="rounded-lg border bg-muted/50 px-4 py-3 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-medium">
+                                Developer response
+                              </p>
+                              {review.response.state === "PENDING_PUBLISH" && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0"
+                                >
+                                  Pending
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground"
+                                onClick={() => {
+                                  setReplyTarget(review);
+                                  setReplyBody(review.response!.responseBody);
+                                  setEditingResponseId(review.response!.id);
+                                }}
+                              >
+                                <PencilSimple size={12} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDeleteResponse(review.id, review.response!.id)}
+                                disabled={deletingResponseId === review.response!.id}
+                              >
+                                {deletingResponseId === review.response!.id ? (
+                                  <CircleNotch size={12} className="animate-spin" />
+                                ) : (
+                                  <Trash size={12} />
+                                )}
+                              </Button>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(
+                                  review.response.lastModifiedDate,
+                                ).toLocaleDateString("en-GB", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-sm">
+                            {review.response.responseBody}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 );
-              }
-              // Show ellipsis only once per gap
-              if (page === 2 && safePage > 3) {
-                return (
-                  <PaginationItem key="ellipsis-start">
-                    <PaginationEllipsis />
-                  </PaginationItem>
-                );
-              }
-              if (page === totalPages - 1 && safePage < totalPages - 2) {
-                return (
-                  <PaginationItem key="ellipsis-end">
-                    <PaginationEllipsis />
-                  </PaginationItem>
-                );
-              }
-              return null;
-            })}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                aria-disabled={safePage >= totalPages}
-                className={safePage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+              })}
+            </div>
+          )}
+        </PaginatedList>
       )}
 
       {/* Reply dialog */}

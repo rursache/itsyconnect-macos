@@ -134,7 +134,7 @@ interface BuildMetrics {
   crashes: number;
 }
 
-async function fetchBuildMetrics(
+export async function fetchBuildMetrics(
   buildIds: string[],
 ): Promise<Map<string, BuildMetrics>> {
   const map = new Map<string, BuildMetrics>();

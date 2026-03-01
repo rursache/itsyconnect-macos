@@ -36,6 +36,7 @@ import { HeaderLocaleProvider } from "@/lib/header-locale-context";
 import { SubmissionChecklistProvider } from "@/lib/submission-checklist-context";
 import { BuildActionProvider } from "@/lib/build-action-context";
 import { RefreshProvider } from "@/lib/refresh-context";
+import { BreadcrumbProvider } from "@/lib/breadcrumb-context";
 import { saveNavigation } from "@/lib/nav-state";
 
 declare global {
@@ -82,6 +83,7 @@ export default function DashboardLayout({
       <SubmissionChecklistProvider>
       <BuildActionProvider>
       <RefreshProvider>
+      <BreadcrumbProvider>
       <ReadySignal />
       <Suspense>
         <NavigationTracker />
@@ -126,6 +128,7 @@ export default function DashboardLayout({
           </Suspense>
         </SidebarInset>
       </SidebarProvider>
+      </BreadcrumbProvider>
       </RefreshProvider>
       </BuildActionProvider>
       </SubmissionChecklistProvider>

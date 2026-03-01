@@ -10,6 +10,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useApps } from "@/lib/apps-context";
+import { useBreadcrumbTitle } from "@/lib/breadcrumb-context";
 import { getTFBuild, getGroup } from "@/lib/mock-testflight";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -36,6 +37,7 @@ export function DashboardBreadcrumb() {
 
   const { apps } = useApps();
   const app = appId ? apps.find((a) => a.id === appId) : undefined;
+  const dynamicTitle = useBreadcrumbTitle();
   const isSettings = pathname.startsWith("/dashboard/settings");
 
   // Extract all segments after /dashboard/apps/[appId]/
@@ -57,7 +59,7 @@ export function DashboardBreadcrumb() {
 
     // /testflight/groups/[groupId]
     if (tfSub === "groups" && tfDetail) {
-      const group = getGroup(tfDetail);
+      const groupName = dynamicTitle ?? getGroup(tfDetail)?.name ?? "Group";
       return (
         <>
           <BreadcrumbSeparator className="hidden md:block" />
@@ -66,7 +68,7 @@ export function DashboardBreadcrumb() {
           </BreadcrumbItem>
           <BreadcrumbSeparator className="hidden md:block" />
           <BreadcrumbItem>
-            <BreadcrumbPage>{group?.name ?? "Group"}</BreadcrumbPage>
+            <BreadcrumbPage>{groupName}</BreadcrumbPage>
           </BreadcrumbItem>
         </>
       );
@@ -103,6 +105,7 @@ export function DashboardBreadcrumb() {
     // /testflight/[buildId]
     if (tfSub && !(tfSub in TF_SUB_TITLES)) {
       const build = getTFBuild(tfSub);
+      const buildLabel = dynamicTitle ?? (build ? `Build ${build.buildNumber}` : "Build");
       const qs = searchParams.toString();
       const buildsHref = qs ? `${tfBase}?${qs}` : tfBase;
       return (
@@ -113,9 +116,7 @@ export function DashboardBreadcrumb() {
           </BreadcrumbItem>
           <BreadcrumbSeparator className="hidden md:block" />
           <BreadcrumbItem>
-            <BreadcrumbPage>
-              {build ? `Build ${build.buildNumber}` : "Build"}
-            </BreadcrumbPage>
+            <BreadcrumbPage>{buildLabel}</BreadcrumbPage>
           </BreadcrumbItem>
         </>
       );

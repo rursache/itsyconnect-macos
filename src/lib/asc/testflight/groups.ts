@@ -1,5 +1,6 @@
 import { ascFetch } from "../client";
 import { buildIconUrl } from "../apps";
+import { fetchBuildMetrics } from "./builds";
 import { cacheGet, cacheSet, cacheInvalidatePrefix } from "@/lib/cache";
 import {
   GROUPS_TTL,
@@ -116,7 +117,9 @@ export async function getGroupDetail(
   const gAttrs = gData.attributes;
 
   const testerDataArr = Array.isArray(testersRes.data) ? testersRes.data : testersRes.data ? [testersRes.data] : [];
-  const buildDataArr = Array.isArray(buildsRes.data) ? buildsRes.data : buildsRes.data ? [buildsRes.data] : [];
+  const allBuildDataArr = Array.isArray(buildsRes.data) ? buildsRes.data : buildsRes.data ? [buildsRes.data] : [];
+  // Skip expired builds – avoids unnecessary detail fetches and they're hidden in the UI
+  const buildDataArr = allBuildDataArr.filter((b) => !(b.attributes.expired as boolean));
 
   const group: TFGroup = {
     id: gData.id,
@@ -208,16 +211,27 @@ export async function getGroupDetail(
     };
   });
 
-  // Try to fetch tester metrics
-  const testerMetrics = await fetchTesterMetrics(groupId);
-  if (testerMetrics.size > 0) {
-    for (const tester of testers) {
-      const metrics = testerMetrics.get(tester.id);
-      if (metrics) {
-        tester.sessions = metrics.sessions;
-        tester.crashes = metrics.crashes;
-        tester.feedbackCount = metrics.feedbackCount;
-      }
+  // Fetch build metrics and tester metrics in parallel
+  const [buildMetrics, testerMetrics] = await Promise.all([
+    fetchBuildMetrics(builds.map((b) => b.id)),
+    fetchTesterMetrics(groupId),
+  ]);
+
+  for (const build of builds) {
+    const metrics = buildMetrics.get(build.id);
+    if (metrics) {
+      build.installs = metrics.installs;
+      build.sessions = metrics.sessions;
+      build.crashes = metrics.crashes;
+    }
+  }
+
+  for (const tester of testers) {
+    const metrics = testerMetrics.get(tester.id);
+    if (metrics) {
+      tester.sessions = metrics.sessions;
+      tester.crashes = metrics.crashes;
+      tester.feedbackCount = metrics.feedbackCount;
     }
   }
 
@@ -286,17 +300,28 @@ export async function fetchTesterMetrics(
   const map = new Map<string, TesterMetrics>();
 
   try {
-    const response = await ascFetch<AscJsonApiResponse>(
-      `/v1/betaGroups/${groupId}/metrics/betaTesterUsages`,
+    const response = await ascFetch<Record<string, unknown>>(
+      `/v1/betaGroups/${groupId}/metrics/betaTesterUsages?groupBy=betaTesters`,
     );
-    const dataArr = Array.isArray(response.data) ? response.data : response.data ? [response.data] : [];
-    for (const item of dataArr) {
-      const attrs = item.attributes;
-      map.set(item.id, {
-        sessions: (attrs.sessionCount as number) ?? 0,
-        crashes: (attrs.crashCount as number) ?? 0,
-        feedbackCount: (attrs.feedbackCount as number) ?? 0,
-      });
+
+    const dataArr = Array.isArray(response.data) ? response.data : [];
+    for (const item of dataArr as Record<string, unknown>[]) {
+      const dimensions = item.dimensions as Record<string, Record<string, unknown>> | undefined;
+      const testerData = dimensions?.betaTesters?.data as { id: string } | undefined;
+      if (!testerData?.id) continue;
+
+      let sessions = 0, crashes = 0, feedbackCount = 0;
+      const dataPoints = Array.isArray(item.dataPoints) ? item.dataPoints : [];
+      for (const dp of dataPoints as Record<string, unknown>[]) {
+        const values = dp.values as Record<string, number> | undefined;
+        if (values) {
+          sessions += values.sessionCount ?? 0;
+          crashes += values.crashCount ?? 0;
+          feedbackCount += values.feedbackCount ?? 0;
+        }
+      }
+
+      map.set(testerData.id, { sessions, crashes, feedbackCount });
     }
   } catch {
     // Tester metrics are best-effort

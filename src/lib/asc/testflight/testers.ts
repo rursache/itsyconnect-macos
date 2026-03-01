@@ -1,4 +1,5 @@
 import { ascFetch } from "../client";
+import { cacheInvalidatePrefix } from "@/lib/cache";
 import type { TFTester, AscJsonApiResponse } from "./types";
 
 // ── Individual testers on builds ──────────────────────────────────
@@ -112,6 +113,34 @@ export async function createBetaTester(
   );
 
   return response.data.id;
+}
+
+// ── Group-level tester management ─────────────────────────────────
+
+export async function addTestersToGroup(
+  groupId: string,
+  testerIds: string[],
+): Promise<void> {
+  await ascFetch(`/v1/betaGroups/${groupId}/relationships/betaTesters`, {
+    method: "POST",
+    body: JSON.stringify({
+      data: testerIds.map((id) => ({ type: "betaTesters", id })),
+    }),
+  });
+  cacheInvalidatePrefix("tf-groups:");
+}
+
+export async function removeTestersFromGroup(
+  groupId: string,
+  testerIds: string[],
+): Promise<void> {
+  await ascFetch(`/v1/betaGroups/${groupId}/relationships/betaTesters`, {
+    method: "DELETE",
+    body: JSON.stringify({
+      data: testerIds.map((id) => ({ type: "betaTesters", id })),
+    }),
+  });
+  cacheInvalidatePrefix("tf-groups:");
 }
 
 /** Send TestFlight invitation emails. Without this testers stay NOT_INVITED. */
