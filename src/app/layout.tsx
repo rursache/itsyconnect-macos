@@ -29,7 +29,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `document.addEventListener('keydown',e=>{if(e.key==='Tab')e.preventDefault()})`,
+            __html: `document.addEventListener('keydown',e=>{if(e.key==='Tab'&&!e.target.closest('[role="dialog"]'))e.preventDefault()})`,
           }}
         />
       </head>

@@ -283,4 +283,5 @@ Replace `{w}` and `{h}` with pixel dimensions, `{f}` with format (`png`, `jpg`, 
 5. **`appStoreVersionSubmissions`** – has no queryable fields; include it only for relationship presence detection
 6. **Public link testers** – `firstName` is `"Anonymous"`, `email` is null, `inviteType` is `"PUBLIC_LINK"`
 7. **Build expiry** – 90 days from upload. `expired: true` + `expirationDate` in the past means the build is no longer installable
-8. **Screenshot set `relationships` omitted** – when querying `/appScreenshotSets?include=appScreenshots`, the API returns screenshots in `included` but omits the `relationships` key on each set, making it impossible to map screenshots to their parent set. Workaround: fetch screenshots per set via `/v1/appScreenshotSets/{id}/appScreenshots`
+8. **`POST /v1/betaTesters` rejects `apps` relationship** – the `apps` relationship is read-only; CREATE only accepts `builds` or `betaGroups` relationships
+9. **Screenshot set `relationships` omitted** – when querying `/appScreenshotSets?include=appScreenshots`, the API returns screenshots in `included` but omits the `relationships` key on each set, making it impossible to map screenshots to their parent set. Workaround: fetch screenshots per set via `/v1/appScreenshotSets/{id}/appScreenshots`

@@ -9,11 +9,13 @@ import { HeaderVersionPicker, HeaderVersionActions, HeaderRefreshButton } from "
 import { HeaderBuildsPicker } from "@/components/layout/header-builds-picker";
 import { HeaderLocalePicker } from "@/components/layout/header-locale-picker";
 import { VersionActionFooter } from "@/components/layout/version-action-footer";
+import { BuildActionFooter } from "@/components/layout/build-action-footer";
 import { AppsProvider, useApps } from "@/lib/apps-context";
 import { VersionsProvider } from "@/lib/versions-context";
 import { FormDirtyProvider } from "@/lib/form-dirty-context";
 import { HeaderLocaleProvider } from "@/lib/header-locale-context";
 import { SubmissionChecklistProvider } from "@/lib/submission-checklist-context";
+import { BuildActionProvider } from "@/lib/build-action-context";
 import { RefreshProvider } from "@/lib/refresh-context";
 import { saveNavigation } from "@/lib/nav-state";
 
@@ -59,6 +61,7 @@ export default function DashboardLayout({
       <FormDirtyProvider>
       <HeaderLocaleProvider>
       <SubmissionChecklistProvider>
+      <BuildActionProvider>
       <RefreshProvider>
       <ReadySignal />
       <Suspense>
@@ -99,9 +102,11 @@ export default function DashboardLayout({
           <Suspense>
             <VersionActionFooter />
           </Suspense>
+          <BuildActionFooter />
         </SidebarInset>
       </SidebarProvider>
       </RefreshProvider>
+      </BuildActionProvider>
       </SubmissionChecklistProvider>
       </HeaderLocaleProvider>
       </FormDirtyProvider>

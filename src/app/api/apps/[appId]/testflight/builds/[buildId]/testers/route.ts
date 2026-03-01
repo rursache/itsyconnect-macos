@@ -6,6 +6,7 @@ import {
   addIndividualTestersToBuild,
   removeIndividualTestersFromBuild,
   createBetaTester,
+  sendBetaTesterInvitations,
 } from "@/lib/asc/testflight";
 import { hasCredentials } from "@/lib/asc/client";
 import { getMockBuildTesters } from "@/lib/mock-testflight";
@@ -64,7 +65,9 @@ export async function POST(
   const existingParsed = addExistingSchema.safeParse(body);
   if (existingParsed.success) {
     try {
-      await addIndividualTestersToBuild(buildId, existingParsed.data.testerIds);
+      const { testerIds } = existingParsed.data;
+      await addIndividualTestersToBuild(buildId, testerIds);
+      await sendBetaTesterInvitations(appId, testerIds);
       return NextResponse.json({ ok: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -76,12 +79,12 @@ export async function POST(
   if (newParsed.success) {
     try {
       const testerId = await createBetaTester(
-        appId,
+        buildId,
         newParsed.data.email,
         newParsed.data.firstName,
         newParsed.data.lastName,
       );
-      await addIndividualTestersToBuild(buildId, [testerId]);
+      await sendBetaTesterInvitations(appId, [testerId]);
       return NextResponse.json({ ok: true, testerId });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";

@@ -16,6 +16,7 @@ import { useRegisterRefresh } from "@/lib/refresh-context";
 import { useFormDirty } from "@/lib/form-dirty-context";
 import { AppIcon } from "@/components/app-icon";
 import { CharCount } from "@/components/char-count";
+import { useBuildAction } from "@/lib/build-action-context";
 import type { TFBuild, TFGroup, TFTester } from "@/lib/asc/testflight";
 
 const STATUS_DOTS: Record<string, string> = {
@@ -52,6 +53,7 @@ export default function BuildDetailPage() {
   const [whatsNew, setWhatsNew] = useState("");
 
   const { setDirty, registerSave, registerDiscard } = useFormDirty();
+  const { report: reportBuildAction, clear: clearBuildAction, registerRefresh, registerSave: registerBuildSave } = useBuildAction();
 
   const fetchData = useCallback(async (forceRefresh = false) => {
     setLoading(true);
@@ -106,6 +108,46 @@ export default function BuildDetailPage() {
 
   const handleRefresh = useCallback(() => fetchData(true), [fetchData]);
   useRegisterRefresh({ onRefresh: handleRefresh, busy: loading });
+
+  // Report build state to footer context
+  useEffect(() => {
+    if (build) {
+      reportBuildAction({
+        appId,
+        buildId,
+        status: build.status,
+        hasWhatsNew: (whatsNew?.length ?? 0) > 0,
+        whatsNew,
+        localizationId: build.whatsNewLocalizationId,
+      });
+    }
+    return () => clearBuildAction();
+  }, [appId, buildId, build, whatsNew, reportBuildAction, clearBuildAction]);
+
+  useEffect(() => {
+    registerRefresh(() => fetchData(true));
+  }, [registerRefresh, fetchData]);
+
+  // Register save for footer's "submit for review" auto-save
+  useEffect(() => {
+    registerBuildSave(async () => {
+      if (!build?.whatsNewLocalizationId) return;
+      const res = await fetch(`/api/apps/${appId}/testflight/builds/${buildId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          whatsNew,
+          localizationId: build.whatsNewLocalizationId,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to save what's new");
+      }
+      setBuild((prev) => prev ? { ...prev, whatsNew } : prev);
+      setDirty(false);
+    });
+  }, [appId, buildId, build, whatsNew, registerBuildSave, setDirty]);
 
   const buildGroups = useMemo(
     () =>
@@ -295,7 +337,8 @@ export default function BuildDetailPage() {
             appId={appId}
             buildId={buildId}
             testers={testers}
-            onMutated={refetchTesters}
+            onRemoved={refetchTesters}
+            onTesterAdded={(tester) => setTesters((prev) => [...prev, tester])}
           />
         </>
       )}
@@ -440,12 +483,14 @@ function TestersSection({
   appId,
   buildId,
   testers,
-  onMutated,
+  onRemoved,
+  onTesterAdded,
 }: {
   appId: string;
   buildId: string;
   testers: TFTester[];
-  onMutated: () => void;
+  onRemoved: () => void;
+  onTesterAdded: (tester: TFTester) => void;
 }) {
   const [removing, setRemoving] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -463,7 +508,7 @@ function TestersSection({
         throw new Error(data.error ?? "Failed to remove tester");
       }
       toast.success("Tester removed from build");
-      onMutated();
+      onRemoved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to remove tester");
     } finally {
@@ -544,7 +589,7 @@ function TestersSection({
         appId={appId}
         buildId={buildId}
         existingTesterIds={testers.map((t) => t.id)}
-        onAdded={onMutated}
+        onAdded={onTesterAdded}
       />
     </section>
   );
@@ -565,7 +610,7 @@ function AddTesterDialog({
   appId: string;
   buildId: string;
   existingTesterIds: string[];
-  onAdded: () => void;
+  onAdded: (tester: TFTester) => void;
 }) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [appTesters, setAppTesters] = useState<TFTester[]>([]);
@@ -621,8 +666,11 @@ function AddTesterDialog({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to add tester");
       }
-      toast.success("Tester added to build");
-      onAdded();
+      const tester = appTesters.find((t) => t.id === testerId);
+      if (tester) {
+        onAdded({ ...tester, state: "INVITED" });
+      }
+      toast.success("Tester added and invited");
       onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add tester");
@@ -648,8 +696,19 @@ function AddTesterDialog({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to add tester");
       }
+      const data = await res.json();
+      onAdded({
+        id: data.testerId,
+        firstName: firstName.trim() || "Anonymous",
+        lastName: lastName.trim(),
+        email: email.trim(),
+        inviteType: "EMAIL",
+        state: "INVITED",
+        sessions: 0,
+        crashes: 0,
+        feedbackCount: 0,
+      });
       toast.success("Tester invited to build");
-      onAdded();
       onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add tester");
