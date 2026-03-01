@@ -88,7 +88,7 @@ export async function listApps(forceRefresh = false): Promise<AscApp[]> {
   }
 
   const response = await ascFetch<AscAppsResponse>(
-    "/v1/apps?fields[apps]=name,bundleId,sku,primaryLocale,contentRightsDeclaration,subscriptionStatusUrl,subscriptionStatusUrlForSandbox&limit=200",
+    "/v1/apps?fields[apps]=name,bundleId,sku,primaryLocale,contentRightsDeclaration,subscriptionStatusUrl,subscriptionStatusUrlForSandbox&sort=name&limit=200",
   );
 
   const iconUrls = await fetchBuildIconUrls(response.data.map((a) => a.id));

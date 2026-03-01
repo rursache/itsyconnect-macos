@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Camera, WarningCircle, CircleNotch } from "@phosphor-icons/react";
+import { Camera, CheckCircle, WarningCircle, CircleNotch } from "@phosphor-icons/react";
 import { useApps } from "@/lib/apps-context";
 import { useRegisterRefresh } from "@/lib/refresh-context";
 import type { TFFeedbackItem } from "@/lib/asc/testflight";
@@ -41,6 +41,7 @@ export default function FeedbackPage() {
   const app = apps.find((a) => a.id === appId);
 
   const [allFeedback, setAllFeedback] = useState<TFFeedbackItem[]>([]);
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +56,7 @@ export default function FeedbackPage() {
       }
       const data = await res.json();
       setAllFeedback(data.feedback);
+      setCompletedIds(new Set(data.completedIds ?? []));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch feedback");
     } finally {
@@ -83,7 +85,13 @@ export default function FeedbackPage() {
   const [dateFilter, setDateFilter] = useState("all");
   const [buildFilter, setBuildFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
-  const [hideCompleted, setHideCompleted] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(() => {
+    try {
+      return localStorage.getItem("feedback-hide-completed") === "true";
+    } catch {
+      return false;
+    }
+  });
 
   const filtered = useMemo(() => {
     let items = allFeedback;
@@ -105,8 +113,12 @@ export default function FeedbackPage() {
       items = items.filter((f) => f.appPlatform === platformFilter);
     }
 
+    if (hideCompleted) {
+      items = items.filter((f) => !completedIds.has(f.id));
+    }
+
     return items;
-  }, [allFeedback, typeFilter, dateFilter, buildFilter, platformFilter]);
+  }, [allFeedback, typeFilter, dateFilter, buildFilter, platformFilter, hideCompleted, completedIds]);
 
   // Stats
   const stats = useMemo(() => {
@@ -223,7 +235,14 @@ export default function FeedbackPage() {
           <Switch
             id="hide-completed"
             checked={hideCompleted}
-            onCheckedChange={setHideCompleted}
+            onCheckedChange={(checked) => {
+              setHideCompleted(checked);
+              try {
+                localStorage.setItem("feedback-hide-completed", String(checked));
+              } catch {
+                // Storage unavailable – silently skip
+              }
+            }}
           />
           <Label htmlFor="hide-completed" className="text-sm">
             Hide completed
@@ -262,7 +281,10 @@ export default function FeedbackPage() {
                     )}
                     {item.type === "screenshot" ? "Screenshot" : "Crash"}
                   </Badge>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {completedIds.has(item.id) && (
+                      <CheckCircle size={14} weight="fill" className="text-green-600" />
+                    )}
                     {formatDate(item.createdDate)}
                   </span>
                 </div>

@@ -40,3 +40,13 @@ export const cacheEntries = sqliteTable("cache_entries", {
   fetchedAt: integer("fetched_at").notNull(),
   ttlMs: integer("ttl_ms").notNull(),
 });
+
+// --- Feedback completed tracking ---
+
+export const feedbackCompleted = sqliteTable("feedback_completed", {
+  feedbackId: text("feedback_id").primaryKey(),
+  appId: text("app_id").notNull(),
+  completedAt: text("completed_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});

@@ -34,6 +34,12 @@ export function createTestDb() {
       fetched_at INTEGER NOT NULL,
       ttl_ms INTEGER NOT NULL
     );
+
+    CREATE TABLE feedback_completed (
+      feedback_id TEXT PRIMARY KEY NOT NULL,
+      app_id TEXT NOT NULL,
+      completed_at TEXT NOT NULL
+    );
   `);
   return drizzle(sqlite, { schema });
 }

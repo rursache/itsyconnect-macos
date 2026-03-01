@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   BatteryHigh,
   Camera,
+  CheckCircle,
   Clock,
   Copy,
   Cpu,
@@ -77,6 +78,7 @@ export default function FeedbackDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [crashLog, setCrashLog] = useState<string | null>(null);
   const [crashLogLoading, setCrashLogLoading] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -94,6 +96,8 @@ export default function FeedbackDetailPage() {
         (f) => f.id === feedbackId,
       );
       setItem(found ?? null);
+      const completedIds: string[] = data.completedIds ?? [];
+      setCompleted(completedIds.includes(feedbackId));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch feedback");
     } finally {
@@ -116,6 +120,21 @@ export default function FeedbackDetailPage() {
       toast.error(err instanceof Error ? err.message : "Failed to load crash log");
     } finally {
       setCrashLogLoading(false);
+    }
+  }
+
+  async function handleToggleCompleted() {
+    const next = !completed;
+    setCompleted(next);
+    try {
+      await apiFetch(`/api/apps/${appId}/testflight/feedback/completed`, {
+        method: next ? "POST" : "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedbackId }),
+      });
+    } catch (err) {
+      setCompleted(!next);
+      toast.error(err instanceof Error ? err.message : "Failed to update");
     }
   }
 
@@ -256,15 +275,26 @@ export default function FeedbackDetailPage() {
             </span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 text-destructive hover:text-destructive"
-          onClick={() => setDeleteOpen(true)}
-        >
-          <Trash size={14} />
-          Delete
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={completed ? "secondary" : "outline"}
+            size="sm"
+            className="gap-1.5"
+            onClick={handleToggleCompleted}
+          >
+            <CheckCircle size={14} weight={completed ? "fill" : "regular"} />
+            {completed ? "Completed" : "Mark as completed"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-destructive hover:text-destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash size={14} />
+            Delete
+          </Button>
+        </div>
       </div>
 
       {/* Date */}
