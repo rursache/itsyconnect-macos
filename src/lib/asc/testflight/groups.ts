@@ -103,7 +103,7 @@ export async function getGroupDetail(
       `/v1/betaGroups/${groupId}?fields[betaGroups]=name,isInternalGroup,publicLinkEnabled,publicLink,publicLinkLimit,publicLinkLimitEnabled,feedbackEnabled,hasAccessToAllBuilds,createdDate`,
     ),
     ascFetch<AscJsonApiResponse>(
-      `/v1/betaGroups/${groupId}/builds?fields[builds]=version,uploadedDate,processingState,expirationDate,expired,iconAssetToken&limit=200&sort=-uploadedDate`,
+      `/v1/betaGroups/${groupId}/builds?fields[builds]=version,uploadedDate,processingState,expirationDate,expired,iconAssetToken&limit=200`,
     ),
     ascFetch<AscJsonApiResponse>(
       `/v1/betaGroups/${groupId}/betaTesters?fields[betaTesters]=firstName,lastName,email,inviteType,state&limit=200`,
@@ -188,6 +188,9 @@ export async function getGroupDetail(
       crashes: 0,
     };
   });
+
+  // Sort newest first (relationship endpoint doesn't support sort)
+  builds.sort((a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime());
 
   // Parse testers
   const testers: TFTester[] = testerDataArr.map((t) => {
