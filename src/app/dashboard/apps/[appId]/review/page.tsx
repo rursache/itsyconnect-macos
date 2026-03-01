@@ -42,10 +42,10 @@ export default function AppReviewPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
-  // Populate form when version data loads or version changes (during render)
-  const [prevReviewDetail, setPrevReviewDetail] = useState(reviewDetail);
-  if (reviewDetail !== prevReviewDetail) {
-    setPrevReviewDetail(reviewDetail);
+  // Populate form when version changes (compare by ID, not object reference)
+  const [syncedVersionId, setSyncedVersionId] = useState("");
+  if (versionId && versionId !== syncedVersionId) {
+    setSyncedVersionId(versionId);
     setNotes(reviewDetail?.notes ?? "");
     setSignInRequired(reviewDetail?.demoAccountRequired ?? false);
     setDemoName(reviewDetail?.demoAccountName ?? "");
