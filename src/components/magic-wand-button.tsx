@@ -79,6 +79,7 @@ interface CompareState {
   proposedValue?: string;
   apiBody?: Record<string, unknown>;
   singleLine?: boolean;
+  charLimit?: number;
 }
 
 export function MagicWandButton({
@@ -153,6 +154,7 @@ export function MagicWandButton({
     if (!requireAI()) return;
     openCompare({
       title: "Improve text",
+      charLimit,
       apiBody: {
         action: "improve",
         text: value,
@@ -170,6 +172,7 @@ export function MagicWandButton({
     if (!requireAI()) return;
     openCompare({
       title: "Generate keywords",
+      charLimit,
       apiBody: {
         action: "generate-keywords",
         text: value,
@@ -186,6 +189,7 @@ export function MagicWandButton({
     if (!requireAI()) return;
     openCompare({
       title: "Optimize keywords",
+      charLimit,
       apiBody: {
         action: "optimize-keywords",
         text: value,
@@ -202,6 +206,7 @@ export function MagicWandButton({
     if (!requireAI()) return;
     openCompare({
       title: "Fill gaps from other locales",
+      charLimit,
       apiBody: {
         action: "fill-keyword-gaps",
         text: value,
@@ -302,6 +307,7 @@ export function MagicWandButton({
         proposedValue={compare?.proposedValue}
         apiBody={compareApiBody}
         singleLine={compare?.singleLine}
+        charLimit={compare?.charLimit}
         onApply={onChange}
       />
     </>

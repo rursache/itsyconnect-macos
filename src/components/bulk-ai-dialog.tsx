@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { localeName } from "@/lib/asc/locale-names";
+import { CharCount } from "@/components/char-count";
 
 export interface BulkField {
   key: string;
@@ -264,11 +265,11 @@ export function BulkAIDialog({
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3 pl-6">
-                    <p className="text-[11px] font-medium text-muted-foreground">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0 pl-6">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-1">
                       Before
                     </p>
-                    <p className="text-[11px] font-medium text-muted-foreground">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-1">
                       After
                     </p>
                     {/* Both cells share the same grid row so they match height */}
@@ -298,6 +299,14 @@ export function BulkAIDialog({
                           </span>
                         )}
                       </div>
+                    )}
+                    {field.charLimit && (
+                      <>
+                        <CharCount value={before} limit={field.charLimit} />
+                        {!isLoading && !isError && after
+                          ? <CharCount value={after} limit={field.charLimit} />
+                          : <span />}
+                      </>
                     )}
                   </div>
                 </div>

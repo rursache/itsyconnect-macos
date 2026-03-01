@@ -5,7 +5,7 @@ export function CharCount({ value, limit }: { value: string; limit?: number }) {
 
   return (
     <span
-      className={`text-xs tabular-nums ${over ? "font-medium text-destructive" : "text-muted-foreground"}`}
+      className={`mt-[3px] text-xs tabular-nums ${over ? "font-medium text-destructive" : "text-muted-foreground"}`}
     >
       {count}/{limit}
     </span>

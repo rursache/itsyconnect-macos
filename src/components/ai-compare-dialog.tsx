@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { CharCount } from "@/components/char-count";
 
 interface AICompareDialogProps {
   open: boolean;
@@ -24,6 +25,8 @@ interface AICompareDialogProps {
   apiBody?: Record<string, unknown>;
   /** Whether the field is a single-line input (vs textarea). */
   singleLine?: boolean;
+  /** Character limit for the field. */
+  charLimit?: number;
   onApply: (value: string) => void;
 }
 
@@ -35,6 +38,7 @@ export function AICompareDialog({
   proposedValue,
   apiBody,
   singleLine,
+  charLimit,
   onApply,
 }: AICompareDialogProps) {
   const [proposed, setProposed] = useState("");
@@ -104,6 +108,7 @@ export function AICompareDialog({
               readOnly
               className={fieldClass}
             />
+            <CharCount value={currentValue} limit={charLimit} />
           </div>
           <div className="space-y-1.5">
             <p className="text-sm font-medium text-muted-foreground">Proposed</p>
@@ -116,11 +121,14 @@ export function AICompareDialog({
                 {error}
               </div>
             ) : (
-              <TextField
-                value={proposed}
-                onChange={(e) => setProposed(e.target.value)}
-                className={fieldClass}
-              />
+              <>
+                <TextField
+                  value={proposed}
+                  onChange={(e) => setProposed(e.target.value)}
+                  className={fieldClass}
+                />
+                <CharCount value={proposed} limit={charLimit} />
+              </>
             )}
           </div>
         </div>

@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { localeName } from "@/lib/asc/locale-names";
+import { CharCount } from "@/components/char-count";
 import type { BulkField } from "./bulk-ai-dialog";
 
 interface BulkAllAIDialogProps {
@@ -291,10 +292,13 @@ export function BulkAllAIDialog({
                         Failed
                       </div>
                     ) : fr?.status === "done" ? (
-                      <div className="ml-8 max-h-24 overflow-y-auto rounded border bg-muted/40 px-2 py-1.5 text-xs whitespace-pre-wrap">
-                        {after || (
-                          <span className="italic text-muted-foreground">Empty</span>
-                        )}
+                      <div className="ml-8">
+                        <div className="max-h-24 overflow-y-auto rounded border bg-muted/40 px-2 py-1.5 text-xs whitespace-pre-wrap">
+                          {after || (
+                            <span className="italic text-muted-foreground">Empty</span>
+                          )}
+                        </div>
+                        {after && <CharCount value={after} limit={fields[0].charLimit} />}
                       </div>
                     ) : null}
                   </div>
@@ -370,10 +374,13 @@ export function BulkAllAIDialog({
                                 Failed
                               </div>
                             ) : (
-                              <div className="max-h-24 overflow-y-auto rounded border bg-muted/40 px-2 py-1.5 text-xs whitespace-pre-wrap">
-                                {after || (
-                                  <span className="italic text-muted-foreground">Empty</span>
-                                )}
+                              <div>
+                                <div className="max-h-24 overflow-y-auto rounded border bg-muted/40 px-2 py-1.5 text-xs whitespace-pre-wrap">
+                                  {after || (
+                                    <span className="italic text-muted-foreground">Empty</span>
+                                  )}
+                                </div>
+                                {after && <CharCount value={after} limit={field.charLimit} />}
                               </div>
                             )}
                           </div>
