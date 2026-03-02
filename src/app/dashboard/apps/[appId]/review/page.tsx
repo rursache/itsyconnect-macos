@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
+import { useErrorReport } from "@/lib/error-report-context";
 import { useApps } from "@/lib/apps-context";
 import { useVersions } from "@/lib/versions-context";
 import { useFormDirty } from "@/lib/form-dirty-context";
@@ -33,6 +34,7 @@ export default function AppReviewPage() {
   const versionId = selectedVersion?.id ?? "";
 
   const { setDirty, registerSave, registerDiscard, setValidationErrors } = useFormDirty();
+  const { showAscError } = useErrorReport();
   const [notes, setNotes] = useState("");
   const [signInRequired, setSignInRequired] = useState(false);
   const [demoName, setDemoName] = useState("");
@@ -94,7 +96,16 @@ export default function AppReviewPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error ?? "Save failed");
+        if (data.ascErrors?.length) {
+          showAscError({
+            message: data.error ?? "Save failed",
+            ascErrors: data.ascErrors,
+            ascMethod: data.ascMethod,
+            ascPath: data.ascPath,
+          });
+        } else {
+          toast.error(data.error ?? "Save failed");
+        }
         return;
       }
 
@@ -123,7 +134,7 @@ export default function AppReviewPage() {
     });
   }, [
     appId, selectedVersion, notes, signInRequired, demoName, demoPassword,
-    firstName, lastName, phone, email, registerSave, setDirty, updateVersion,
+    firstName, lastName, phone, email, registerSave, setDirty, updateVersion, showAscError,
   ]);
 
   // Register discard handler for the header Discard button

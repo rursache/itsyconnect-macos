@@ -5,6 +5,9 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Lock } from "@phosphor-icons/react";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api-fetch";
+import { useErrorReport } from "@/lib/error-report-context";
+import type { SyncError } from "@/lib/api-helpers";
 import { useApps } from "@/lib/apps-context";
 import { useVersions } from "@/lib/versions-context";
 import { useFormDirty } from "@/lib/form-dirty-context";
@@ -88,6 +91,7 @@ export default function StoreListingPage() {
 
   const { report: reportChecklist } = useSubmissionChecklist();
   const { setDirty, registerSave, registerDiscard, setValidationErrors } = useFormDirty();
+  const { showAscError, showSyncErrors } = useErrorReport();
 
   const bulkFields: BulkField[] = [
     { key: "description", label: "Description", charLimit: FIELD_LIMITS.description },
@@ -230,7 +234,7 @@ export default function StoreListingPage() {
   useEffect(() => {
     registerSave(async () => {
       const promises: Promise<void>[] = [];
-      const allErrors: string[] = [];
+      const allSyncErrors: SyncError[] = [];
 
       // When the version is read-only (live), only promotional text is
       // editable – send just that field to avoid ASC rejecting locked fields.
@@ -257,7 +261,7 @@ export default function StoreListingPage() {
           const data = await res.json();
           if (!res.ok && !data.errors) throw new Error(data.error ?? "Save failed");
           if (data.errors?.length > 0) {
-            allErrors.push(...data.errors);
+            allSyncErrors.push(...(data.errors as SyncError[]));
           }
           locCreatedIds = data.createdIds ?? {};
         }),
@@ -288,7 +292,7 @@ export default function StoreListingPage() {
             const data = await res.json();
             if (!res.ok && !data.errors) throw new Error(data.error ?? "Failed to save release settings");
             if (data.errors?.length > 0) {
-              allErrors.push(...data.errors);
+              allSyncErrors.push(...(data.errors as SyncError[]));
             }
           }),
         );
@@ -311,12 +315,21 @@ export default function StoreListingPage() {
       try {
         await Promise.all(promises);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Save failed");
+        if (err instanceof ApiError && err.ascErrors?.length) {
+          showAscError({
+            message: err.message,
+            ascErrors: err.ascErrors,
+            ascMethod: err.ascMethod,
+            ascPath: err.ascPath,
+          });
+        } else {
+          toast.error(err instanceof Error ? err.message : "Save failed");
+        }
         return;
       }
 
-      if (allErrors.length > 0) {
-        toast.warning(`Saved with ${allErrors.length} error(s)`);
+      if (allSyncErrors.length > 0) {
+        showSyncErrors(allSyncErrors);
       } else {
         toast.success(readOnly ? "Promotional text saved" : "Store listing saved");
       }
@@ -379,7 +392,7 @@ export default function StoreListingPage() {
 
       setDirty(false);
     });
-  }, [appId, versionId, localeData, readOnly, releaseType, scheduledDate, phasedRelease, selectedBuildId, allBuilds, selectedVersion, registerSave, setDirty, updateVersion]);
+  }, [appId, versionId, localeData, readOnly, releaseType, scheduledDate, phasedRelease, selectedBuildId, allBuilds, selectedVersion, registerSave, setDirty, updateVersion, showAscError, showSyncErrors]);
 
   // Register discard handler for the header Discard button
   useEffect(() => {

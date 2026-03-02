@@ -1,21 +1,41 @@
 export type AscErrorCategory = "auth" | "connection" | "api";
 
+export interface AscErrorEntry {
+  code: string;
+  title: string;
+  detail: string;
+  source?: { pointer?: string };
+}
+
 export interface AscError {
   category: AscErrorCategory;
   message: string;
   statusCode?: number;
+  method?: string;
+  path?: string;
+  entries?: AscErrorEntry[];
 }
 
 /**
  * Parse an ASC API error response into a structured AscError.
- * Extracts the first `errors[].detail` from JSON:API envelope when available.
+ * Extracts the full `errors[]` array from the JSON:API envelope.
  */
 export function parseAscError(status: number, responseText: string): AscError {
   let detail: string | undefined;
+  let entries: AscErrorEntry[] | undefined;
 
   try {
     const body = JSON.parse(responseText);
-    detail = body?.errors?.[0]?.detail;
+    if (Array.isArray(body?.errors)) {
+      const parsed: AscErrorEntry[] = body.errors.map((e: Record<string, unknown>) => ({
+        code: (e.code as string) ?? "",
+        title: (e.title as string) ?? "",
+        detail: (e.detail as string) ?? "",
+        source: e.source as { pointer?: string } | undefined,
+      }));
+      entries = parsed;
+      detail = parsed[0]?.detail;
+    }
   } catch {
     // Not JSON – use default messages below
   }
@@ -25,6 +45,7 @@ export function parseAscError(status: number, responseText: string): AscError {
       category: "auth",
       message: detail ?? "API key may be invalid or expired",
       statusCode: status,
+      entries,
     };
   }
 
@@ -33,6 +54,7 @@ export function parseAscError(status: number, responseText: string): AscError {
       category: "connection",
       message: detail ?? "App Store Connect is temporarily unavailable",
       statusCode: status,
+      entries,
     };
   }
 
@@ -40,6 +62,7 @@ export function parseAscError(status: number, responseText: string): AscError {
     category: "api",
     message: detail ?? `App Store Connect returned an error (${status})`,
     statusCode: status,
+    entries,
   };
 }
 

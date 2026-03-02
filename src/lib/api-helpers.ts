@@ -1,16 +1,25 @@
 import { NextResponse } from "next/server";
 import type { z } from "zod";
 import { AscApiError } from "@/lib/asc/client";
+import type { AscErrorEntry } from "@/lib/asc/errors";
 
 /**
  * Build an error JSON response from a caught value.
- * For AscApiError, includes category and statusCode for client-side error handling.
+ * For AscApiError, includes category, ascErrors, ascMethod, and ascPath
+ * so the client can show structured error details.
  */
 export function errorJson(err: unknown, status = 502, fallback = "Unknown error"): NextResponse {
   if (err instanceof AscApiError) {
-    const { message, category, statusCode } = err.ascError;
+    const { message, category, statusCode, entries, method, path } = err.ascError;
     return NextResponse.json(
-      { error: message, category, statusCode },
+      {
+        error: message,
+        category,
+        statusCode,
+        ...(entries && { ascErrors: entries }),
+        ...(method && { ascMethod: method }),
+        ...(path && { ascPath: path }),
+      },
       { status: statusCode ?? status },
     );
   }
@@ -43,6 +52,15 @@ export async function parseBody<T>(
   return parsed.data;
 }
 
+export interface SyncError {
+  operation: "update" | "create" | "delete";
+  locale: string;
+  message: string;
+  ascErrors?: AscErrorEntry[];
+  ascMethod?: string;
+  ascPath?: string;
+}
+
 export interface SyncLocalizationsMutations {
   update: (id: string, fields: Record<string, unknown>) => Promise<void>;
   create: (parentId: string, locale: string, fields: Record<string, unknown>) => Promise<string>;
@@ -65,7 +83,7 @@ export async function syncLocalizations(
   };
 
   const { locales, originalLocaleIds } = body;
-  const errors: string[] = [];
+  const errors: SyncError[] = [];
   const createdIds: Record<string, string> = {};
   const ops: Promise<void>[] = [];
 
@@ -74,7 +92,17 @@ export async function syncLocalizations(
     if (existingId) {
       ops.push(
         mutations.update(existingId, fields).catch((err) => {
-          errors.push(`Update ${locale}: ${err instanceof Error ? err.message : "failed"}`);
+          const syncErr: SyncError = {
+            operation: "update",
+            locale,
+            message: err instanceof Error ? err.message : "failed",
+          };
+          if (err instanceof AscApiError) {
+            syncErr.ascErrors = err.ascError.entries;
+            syncErr.ascMethod = err.ascError.method;
+            syncErr.ascPath = err.ascError.path;
+          }
+          errors.push(syncErr);
         }),
       );
     } else {
@@ -82,7 +110,17 @@ export async function syncLocalizations(
         mutations.create(parentId, locale, fields).then((id) => {
           createdIds[locale] = id;
         }).catch((err) => {
-          errors.push(`Create ${locale}: ${err instanceof Error ? err.message : "failed"}`);
+          const syncErr: SyncError = {
+            operation: "create",
+            locale,
+            message: err instanceof Error ? err.message : "failed",
+          };
+          if (err instanceof AscApiError) {
+            syncErr.ascErrors = err.ascError.entries;
+            syncErr.ascMethod = err.ascError.method;
+            syncErr.ascPath = err.ascError.path;
+          }
+          errors.push(syncErr);
         }),
       );
     }
@@ -92,7 +130,17 @@ export async function syncLocalizations(
     if (!locales[locale]) {
       ops.push(
         mutations.delete(locId).catch((err) => {
-          errors.push(`Delete ${locale}: ${err instanceof Error ? err.message : "failed"}`);
+          const syncErr: SyncError = {
+            operation: "delete",
+            locale,
+            message: err instanceof Error ? err.message : "failed",
+          };
+          if (err instanceof AscApiError) {
+            syncErr.ascErrors = err.ascError.entries;
+            syncErr.ascMethod = err.ascError.method;
+            syncErr.ascPath = err.ascError.path;
+          }
+          errors.push(syncErr);
         }),
       );
     }

@@ -16,6 +16,9 @@ import {
 import { Copy, Check } from "@phosphor-icons/react";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api-fetch";
+import { useErrorReport } from "@/lib/error-report-context";
+import type { SyncError } from "@/lib/api-helpers";
 import { useApps } from "@/lib/apps-context";
 import { useFormDirty } from "@/lib/form-dirty-context";
 import { useAppInfo, useAppInfoLocalizations } from "@/lib/hooks/use-app-info";
@@ -129,6 +132,7 @@ export default function AppDetailsPage() {
   };
 
   const { setDirty, registerSave, registerDiscard, setValidationErrors } = useFormDirty();
+  const { showAscError, showSyncErrors } = useErrorReport();
 
   const bulkFields: BulkField[] = [
     { key: "name", label: "Name", charLimit: FIELD_LIMITS.name },
@@ -236,6 +240,7 @@ export default function AppDetailsPage() {
 
       // Save localizations
       let locCreatedIds: Record<string, string> = {};
+      const syncErrors: SyncError[] = [];
       promises.push(
         fetch(`/api/apps/${appId}/info/${appInfoId}/localizations`, {
           method: "PUT",
@@ -248,7 +253,7 @@ export default function AppDetailsPage() {
           const data = await res.json();
           if (!res.ok && !data.errors) throw new Error(data.error ?? "Save failed");
           if (data.errors?.length > 0) {
-            toast.warning(`Saved with ${data.errors.length} error(s)`);
+            syncErrors.push(...(data.errors as SyncError[]));
           }
           locCreatedIds = data.createdIds ?? {};
         }),
@@ -301,10 +306,24 @@ export default function AppDetailsPage() {
 
       try {
         await Promise.all(promises);
-        toast.success("App details saved");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Save failed");
+        if (err instanceof ApiError && err.ascErrors?.length) {
+          showAscError({
+            message: err.message,
+            ascErrors: err.ascErrors,
+            ascMethod: err.ascMethod,
+            ascPath: err.ascPath,
+          });
+        } else {
+          toast.error(err instanceof Error ? err.message : "Save failed");
+        }
         return;
+      }
+
+      if (syncErrors.length > 0) {
+        showSyncErrors(syncErrors);
+      } else {
+        toast.success("App details saved");
       }
 
       // Update original snapshot with real IDs from created locales
@@ -325,7 +344,7 @@ export default function AppDetailsPage() {
 
       setDirty(false);
     });
-  }, [appId, appInfoId, localeData, contentRights, primaryCategoryId, secondaryCategoryId, notifUrl, notifSandboxUrl, primaryLocale, app?.name, updateApp, registerSave, setDirty]);
+  }, [appId, appInfoId, localeData, contentRights, primaryCategoryId, secondaryCategoryId, notifUrl, notifSandboxUrl, primaryLocale, app?.name, updateApp, registerSave, setDirty, showAscError, showSyncErrors]);
 
   // Register discard handler for the header Discard button
   useEffect(() => {

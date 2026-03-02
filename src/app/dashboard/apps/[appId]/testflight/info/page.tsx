@@ -11,6 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { ArrowClockwise } from "@phosphor-icons/react";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api-fetch";
+import type { AscErrorEntry } from "@/lib/asc/errors";
+import { useErrorReport } from "@/lib/error-report-context";
+import type { SyncError } from "@/lib/api-helpers";
 import { CharCount } from "@/components/char-count";
 import { useFormDirty } from "@/lib/form-dirty-context";
 import { useRegisterRefresh } from "@/lib/refresh-context";
@@ -78,6 +82,7 @@ export default function TestFlightInfoPage() {
   const primaryLocale = app?.primaryLocale ?? "";
 
   const { setDirty, registerSave, registerDiscard } = useFormDirty();
+  const { showAscError, showSyncErrors } = useErrorReport();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -293,6 +298,7 @@ export default function TestFlightInfoPage() {
 
       // Save localizations via PUT (batch create/update/delete)
       let locCreatedIds: Record<string, string> = {};
+      const syncErrors: SyncError[] = [];
       promises.push(
         fetch(`/api/apps/${appId}/testflight/info`, {
           method: "PUT",
@@ -305,7 +311,7 @@ export default function TestFlightInfoPage() {
           const data = await res.json();
           if (!res.ok && !data.errors) throw new Error(data.error ?? "Save failed");
           if (data.errors?.length > 0) {
-            toast.warning(`Saved with ${data.errors.length} error(s)`);
+            syncErrors.push(...(data.errors as SyncError[]));
           }
           locCreatedIds = data.createdIds ?? {};
         }),
@@ -332,8 +338,15 @@ export default function TestFlightInfoPage() {
             }),
           }).then(async (res) => {
             if (!res.ok) {
-              const data = await res.json().catch(() => ({}));
-              throw new Error(data.error ?? "Failed to save review details");
+              const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+              throw new ApiError(
+                (data.error as string) ?? "Failed to save review details",
+                {
+                  ascErrors: data.ascErrors as AscErrorEntry[] | undefined,
+                  ascMethod: data.ascMethod as string | undefined,
+                  ascPath: data.ascPath as string | undefined,
+                },
+              );
             }
           }),
         );
@@ -351,8 +364,15 @@ export default function TestFlightInfoPage() {
             }),
           }).then(async (res) => {
             if (!res.ok) {
-              const data = await res.json().catch(() => ({}));
-              throw new Error(data.error ?? "Failed to save license agreement");
+              const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+              throw new ApiError(
+                (data.error as string) ?? "Failed to save license agreement",
+                {
+                  ascErrors: data.ascErrors as AscErrorEntry[] | undefined,
+                  ascMethod: data.ascMethod as string | undefined,
+                  ascPath: data.ascPath as string | undefined,
+                },
+              );
             }
           }),
         );
@@ -360,10 +380,24 @@ export default function TestFlightInfoPage() {
 
       try {
         await Promise.all(promises);
-        toast.success("Beta app info saved");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Save failed");
+        if (err instanceof ApiError && err.ascErrors?.length) {
+          showAscError({
+            message: err.message,
+            ascErrors: err.ascErrors,
+            ascMethod: err.ascMethod,
+            ascPath: err.ascPath,
+          });
+        } else {
+          toast.error(err instanceof Error ? err.message : "Save failed");
+        }
         return;
+      }
+
+      if (syncErrors.length > 0) {
+        showSyncErrors(syncErrors);
+      } else {
+        toast.success("Beta app info saved");
       }
 
       // Update original snapshot with real IDs from created locales
@@ -381,7 +415,7 @@ export default function TestFlightInfoPage() {
 
       setDirty(false);
     });
-  }, [appId, localeData, review, licenseAgreement, licenseText, registerSave, setDirty]);
+  }, [appId, localeData, review, licenseAgreement, licenseText, registerSave, setDirty, showAscError, showSyncErrors]);
 
   // Register discard handler for the header Discard button
   useEffect(() => {

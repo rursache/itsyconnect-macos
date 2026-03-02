@@ -39,6 +39,7 @@ import { RefreshProvider } from "@/lib/refresh-context";
 import { FooterPortalProvider } from "@/lib/footer-portal-context";
 import { ConnectionBanner } from "@/components/layout/connection-banner";
 import { BreadcrumbProvider } from "@/lib/breadcrumb-context";
+import { ErrorReportProvider } from "@/lib/error-report-context";
 import { saveNavigation } from "@/lib/nav-state";
 
 declare global {
@@ -81,6 +82,7 @@ export default function DashboardLayout({
     <AppsProvider>
       <VersionsProvider>
       <FormDirtyProvider>
+      <ErrorReportProvider>
       <HeaderLocaleProvider>
       <SubmissionChecklistProvider>
       <BuildActionProvider>
@@ -142,6 +144,7 @@ export default function DashboardLayout({
       </BuildActionProvider>
       </SubmissionChecklistProvider>
       </HeaderLocaleProvider>
+      </ErrorReportProvider>
       </FormDirtyProvider>
       </VersionsProvider>
     </AppsProvider>

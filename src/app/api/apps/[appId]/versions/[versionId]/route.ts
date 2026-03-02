@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { updateVersionAttributes, selectBuildForVersion, deleteVersion, invalidateVersionsCache } from "@/lib/asc/version-mutations";
 import { hasCredentials } from "@/lib/asc/client";
+import { errorJson } from "@/lib/api-helpers";
 
 export async function PATCH(
   request: Request,
@@ -32,17 +33,7 @@ export async function PATCH(
     invalidateVersionsCache(appId);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const raw = err instanceof Error ? err.message : "Unknown error";
-    // Extract first detail from ASC JSON error envelope
-    let message = raw;
-    const jsonStart = raw.indexOf("{");
-    if (jsonStart !== -1) {
-      try {
-        const parsed = JSON.parse(raw.slice(jsonStart));
-        message = parsed.errors?.[0]?.detail ?? raw;
-      } catch { /* keep raw */ }
-    }
-    return NextResponse.json({ error: message }, { status: 502 });
+    return errorJson(err);
   }
 }
 
@@ -61,16 +52,6 @@ export async function DELETE(
     invalidateVersionsCache(appId);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const raw = err instanceof Error ? err.message : "Unknown error";
-    // Extract first detail from ASC JSON error envelope
-    let message = raw;
-    const jsonStart = raw.indexOf("{");
-    if (jsonStart !== -1) {
-      try {
-        const parsed = JSON.parse(raw.slice(jsonStart));
-        message = parsed.errors?.[0]?.detail ?? raw;
-      } catch { /* keep raw */ }
-    }
-    return NextResponse.json({ error: message }, { status: 500 });
+    return errorJson(err, 500);
   }
 }
