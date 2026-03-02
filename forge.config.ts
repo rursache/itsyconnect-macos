@@ -1,6 +1,8 @@
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { MakerDMG } from "@electron-forge/maker-dmg";
-import { MakerPKG } from "@electron-forge/maker-pkg";
+
+import { MakerZIP } from "@electron-forge/maker-zip";
+import { PublisherGithub } from "@electron-forge/publisher-github";
 import { BUILD_NUMBER } from "./src/lib/version";
 
 const config: ForgeConfig = {
@@ -33,7 +35,15 @@ const config: ForgeConfig = {
     new MakerDMG({
       format: "ULFO",
     }),
-    new MakerPKG({}),
+
+    new MakerZIP({}),
+  ],
+  publishers: [
+    new PublisherGithub({
+      repository: { owner: "nickustinov", name: "itsyconnect-macos" },
+      prerelease: false,
+      draft: true,
+    }),
   ],
 };
 

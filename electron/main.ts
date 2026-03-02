@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, safeStorage, ipcMain, screen, shell, protocol, net } from "electron";
+import { app, autoUpdater, BrowserWindow, Menu, safeStorage, ipcMain, screen, shell, protocol, net } from "electron";
 import { spawn, ChildProcess } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import { createServer as createNetServer } from "node:net";
 import { pathToFileURL } from "node:url";
 import http from "node:http";
+import { updateElectronApp } from "update-electron-app";
 
 const isDev = !app.isPackaged;
 let nextProcess: ChildProcess | null = null;
@@ -196,6 +197,12 @@ function setupMenu(): void {
       label: appName,
       submenu: [
         { role: "about", label: `About ${appName}` },
+        {
+          label: "Check for updates\u2026",
+          click: () => {
+            autoUpdater.checkForUpdates();
+          },
+        },
         { type: "separator" },
         { role: "hide", label: `Hide ${appName}` },
         { role: "hideOthers" },
@@ -342,6 +349,13 @@ if (!gotLock) {
     const port = isDev ? await startDevServer() : await startProdServer();
     if (!isDev) registerProtocolProxy(port);
     createWindow(port);
+
+    if (!isDev) {
+      updateElectronApp({
+        updateInterval: "1 hour",
+        notifyUser: true,
+      });
+    }
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
