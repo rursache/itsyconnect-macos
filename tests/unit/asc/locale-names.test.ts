@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LOCALE_NAMES, localeName, sortLocales, FIELD_LIMITS } from "@/lib/asc/locale-names";
+import { LOCALE_NAMES, localeName, sortLocales, FIELD_LIMITS, FIELD_MIN_LIMITS } from "@/lib/asc/locale-names";
 
 describe("locale-names", () => {
   describe("LOCALE_NAMES", () => {
@@ -64,6 +64,22 @@ describe("locale-names", () => {
       for (const value of Object.values(FIELD_LIMITS)) {
         expect(typeof value).toBe("number");
         expect(value).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe("FIELD_MIN_LIMITS", () => {
+    it("has expected fields", () => {
+      expect(FIELD_MIN_LIMITS.name).toBe(2);
+      expect(FIELD_MIN_LIMITS.description).toBe(10);
+      expect(FIELD_MIN_LIMITS.whatsNew).toBe(4);
+    });
+
+    it("all minimums are less than corresponding maximums", () => {
+      for (const [field, min] of Object.entries(FIELD_MIN_LIMITS)) {
+        const max = FIELD_LIMITS[field];
+        expect(max).toBeDefined();
+        expect(min).toBeLessThan(max);
       }
     });
   });

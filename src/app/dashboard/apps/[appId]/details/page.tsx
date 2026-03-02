@@ -24,7 +24,7 @@ import { useFormDirty } from "@/lib/form-dirty-context";
 import { useAppInfo, useAppInfoLocalizations } from "@/lib/hooks/use-app-info";
 import { pickAppInfo } from "@/lib/asc/app-info-utils";
 import type { AscAppInfoLocalization } from "@/lib/asc/app-info";
-import { localeName, sortLocales, FIELD_LIMITS } from "@/lib/asc/locale-names";
+import { localeName, sortLocales, FIELD_LIMITS, FIELD_MIN_LIMITS } from "@/lib/asc/locale-names";
 import { CATEGORIES, categoryName } from "@/lib/asc/categories";
 import { CharCount } from "@/components/char-count";
 import { useRegisterHeaderLocale } from "@/lib/header-locale-context";
@@ -222,12 +222,15 @@ export default function AppDetailsPage() {
   useEffect(() => {
     const errors: string[] = [];
     for (const [locale, fields] of Object.entries(localeData)) {
-      const name = localeName(locale);
+      const lName = localeName(locale);
       if (fields.name.length > FIELD_LIMITS.name) {
-        errors.push(`Name (${fields.name.length}/${FIELD_LIMITS.name}) in ${name}`);
+        errors.push(`Name (${fields.name.length}/${FIELD_LIMITS.name}) in ${lName}`);
+      }
+      if (fields.name.length > 0 && fields.name.length < FIELD_MIN_LIMITS.name) {
+        errors.push(`Name must be at least ${FIELD_MIN_LIMITS.name} characters in ${lName}`);
       }
       if (fields.subtitle.length > FIELD_LIMITS.subtitle) {
-        errors.push(`Subtitle (${fields.subtitle.length}/${FIELD_LIMITS.subtitle}) in ${name}`);
+        errors.push(`Subtitle (${fields.subtitle.length}/${FIELD_LIMITS.subtitle}) in ${lName}`);
       }
     }
     setValidationErrors(errors);
@@ -519,7 +522,7 @@ export default function AppDetailsPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-sm text-muted-foreground">Name{localeTag}</label>
-                  <CharCount value={current.name} limit={FIELD_LIMITS.name} />
+                  <CharCount value={current.name} limit={FIELD_LIMITS.name} min={FIELD_MIN_LIMITS.name} />
                 </div>
                 <Input
                   value={current.name}

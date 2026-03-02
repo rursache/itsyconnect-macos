@@ -64,3 +64,10 @@ export const FIELD_LIMITS: Record<string, number> = {
   marketingUrl: 2048,
   reviewNotes: 4000,
 };
+
+/** Minimum character lengths enforced by the ASC API (empty is allowed). */
+export const FIELD_MIN_LIMITS: Record<string, number> = {
+  name: 2,
+  description: 10,
+  whatsNew: 4,
+};

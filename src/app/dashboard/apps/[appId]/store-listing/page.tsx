@@ -18,6 +18,7 @@ import {
   localeName,
   sortLocales,
   FIELD_LIMITS,
+  FIELD_MIN_LIMITS,
 } from "@/lib/asc/locale-names";
 import { useRegisterHeaderLocale } from "@/lib/header-locale-context";
 import { useSubmissionChecklist } from "@/lib/submission-checklist-context";
@@ -213,6 +214,10 @@ export default function StoreListingPage() {
         const len = fields[field].length;
         if (len > limit) {
           errors.push(`${fieldLabels[field]} (${len}/${limit}) in ${name}`);
+        }
+        const min = FIELD_MIN_LIMITS[field];
+        if (min && len > 0 && len < min) {
+          errors.push(`${fieldLabels[field]} must be at least ${min} characters in ${name}`);
         }
       }
     }

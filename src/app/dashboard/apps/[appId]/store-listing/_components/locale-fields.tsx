@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CharCount } from "@/components/char-count";
-import { FIELD_LIMITS } from "@/lib/asc/locale-names";
+import { FIELD_LIMITS, FIELD_MIN_LIMITS } from "@/lib/asc/locale-names";
 import { MagicWandButton, wandProps } from "@/components/magic-wand-button";
 import type { MagicWandLocaleProps } from "@/components/magic-wand-button";
 
@@ -71,6 +71,7 @@ export function LocaleFieldsSection({
             <CharCount
               value={current.whatsNew}
               limit={FIELD_LIMITS.whatsNew}
+              min={FIELD_MIN_LIMITS.whatsNew}
             />
           </div>
         </Card>
@@ -135,6 +136,7 @@ export function LocaleFieldsSection({
             <CharCount
               value={current.description}
               limit={FIELD_LIMITS.description}
+              min={FIELD_MIN_LIMITS.description}
             />
           </div>
         </Card>
