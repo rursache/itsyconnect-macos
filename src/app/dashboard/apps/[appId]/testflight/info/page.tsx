@@ -396,9 +396,10 @@ export default function TestFlightInfoPage() {
 
       if (syncErrors.length > 0) {
         showSyncErrors(syncErrors);
-      } else {
-        toast.success("Beta app info saved");
+        return;
       }
+
+      toast.success("Beta app info saved");
 
       // Update original snapshot with real IDs from created locales
       const ids: Record<string, string> = { ...originalLocaleIdsRef.current };

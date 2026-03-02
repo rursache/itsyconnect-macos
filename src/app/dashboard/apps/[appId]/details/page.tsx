@@ -322,9 +322,10 @@ export default function AppDetailsPage() {
 
       if (syncErrors.length > 0) {
         showSyncErrors(syncErrors);
-      } else {
-        toast.success("App details saved");
+        return;
       }
+
+      toast.success("App details saved");
 
       // Update original snapshot with real IDs from created locales
       const ids: Record<string, string> = { ...originalLocaleIdsRef.current };

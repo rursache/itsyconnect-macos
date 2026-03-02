@@ -330,9 +330,10 @@ export default function StoreListingPage() {
 
       if (allSyncErrors.length > 0) {
         showSyncErrors(allSyncErrors);
-      } else {
-        toast.success(readOnly ? "Promotional text saved" : "Store listing saved");
+        return;
       }
+
+      toast.success(readOnly ? "Promotional text saved" : "Store listing saved");
 
       // Update original snapshot with real IDs from created locales
       const ids = { ...originalLocaleIdsRef.current };
