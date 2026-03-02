@@ -368,7 +368,7 @@ export default function SetupPage() {
                   {keyError}
                 </p>
               )}
-              {privateKey && !keyError && (
+              {privateKey && !keyError && keyIdFromFile && (
                 <>
                   {testStatus === "testing" && (
                     <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -389,12 +389,12 @@ export default function SetupPage() {
                       {testError || "Connection failed – check your credentials."}
                     </p>
                   )}
-                  {testStatus === "idle" && !keyIdFromFile && (
-                    <p className="text-xs text-muted-foreground">
-                      Key loaded. Enter the key ID below to continue.
-                    </p>
-                  )}
                 </>
+              )}
+              {privateKey && !keyError && !keyIdFromFile && (
+                <p className="text-xs text-muted-foreground">
+                  Key loaded. Enter the key ID below to continue.
+                </p>
               )}
             </div>
             {/* Show key ID input only if not extracted from filename */}
@@ -403,10 +403,52 @@ export default function SetupPage() {
                 <label className="text-sm text-muted-foreground">Key ID</label>
                 <Input
                   value={keyId}
-                  onChange={(e) => setKeyId(e.target.value)}
+                  onChange={(e) => {
+                    setKeyId(e.target.value);
+                    if (testStatus !== "idle") {
+                      setTestStatus("idle");
+                      setTestError("");
+                    }
+                  }}
                   placeholder="XXXXXXXXXX"
                   className="font-mono text-sm"
                 />
+                {testStatus === "testing" && (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Spinner className="size-3.5" />
+                    Testing connection...
+                  </p>
+                )}
+                {testStatus === "ok" && (
+                  <p className="flex items-center gap-1.5 text-xs text-green-600">
+                    <CheckCircle size={14} weight="fill" />
+                    Connected – key ID{" "}
+                    <span className="font-mono">{keyId}</span>
+                  </p>
+                )}
+                {testStatus === "error" && (
+                  <p className="flex items-center gap-1.5 text-xs text-destructive">
+                    <XCircle size={14} weight="fill" />
+                    {testError || "Connection failed – check your credentials."}
+                  </p>
+                )}
+                {(testStatus === "idle" || testStatus === "error") &&
+                  keyId.trim() &&
+                  issuerId.trim() && (
+                    <button
+                      type="button"
+                      className="text-xs text-primary underline-offset-4 hover:underline"
+                      onClick={() =>
+                        testConnection(
+                          issuerId.trim(),
+                          keyId.trim(),
+                          privateKey,
+                        )
+                      }
+                    >
+                      Test connection
+                    </button>
+                  )}
               </div>
             )}
           </div>
