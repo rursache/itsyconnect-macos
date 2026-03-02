@@ -100,8 +100,8 @@ export function HeaderVersionPicker() {
     .replace(/^\//, "");
   const pageSegment = subpath.split("/")[0];
 
-  // Show on testflight builds page only (exact match, no subpages)
-  const isTestFlight = subpath === "testflight";
+  // Show on testflight root (builds list) and group detail pages
+  const isTestFlight = subpath === "testflight" || /^testflight\/groups\/[^/]+$/.test(subpath);
   if (!VERSION_PAGES.has(pageSegment) && !isTestFlight) return null;
   if (pageSegment === "testflight" && !isTestFlight) return null;
 
