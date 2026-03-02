@@ -2,6 +2,11 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 
+export interface ConnectionError {
+  message: string;
+  category: "auth" | "connection" | "api" | "network";
+}
+
 export interface App {
   id: string;
   name: string;
@@ -17,7 +22,7 @@ export interface App {
 interface AppsContextValue {
   apps: App[];
   loading: boolean;
-  error: string | null;
+  error: ConnectionError | null;
   refresh: () => Promise<void>;
   /** Update a single app in-place without refetching. */
   updateApp: (appId: string, updater: (a: App) => App) => void;
@@ -52,27 +57,28 @@ function normalizeApp(raw: { id: string; attributes?: Record<string, string | nu
 export function AppsProvider({ children }: { children: React.ReactNode }) {
   const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ConnectionError | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    setError(null);
 
     try {
       const res = await fetch("/api/apps");
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "Failed to load apps");
-        setApps([]);
+        setError({
+          message: data.error || "Failed to load apps",
+          category: data.category ?? "api",
+        });
         return;
       }
 
       const data = await res.json();
       const normalized = (data.apps ?? []).map(normalizeApp);
       setApps(normalized);
+      setError(null);
     } catch {
-      setError("Network error");
-      setApps([]);
+      setError({ message: "Could not connect to the server", category: "network" });
     } finally {
       setLoading(false);
     }

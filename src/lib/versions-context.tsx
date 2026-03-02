@@ -9,11 +9,12 @@ import {
 } from "react";
 import { useParams } from "next/navigation";
 import type { AscVersion } from "@/lib/asc/version-types";
+import type { ConnectionError } from "@/lib/apps-context";
 
 interface VersionsContextValue {
   versions: AscVersion[];
   loading: boolean;
-  error: string | null;
+  error: ConnectionError | null;
   refresh: () => Promise<void>;
   /** Update a single version in-place without refetching. */
   updateVersion: (versionId: string, updater: (v: AscVersion) => AscVersion) => void;
@@ -31,27 +32,28 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
   const { appId } = useParams<{ appId: string }>();
   const [versions, setVersions] = useState<AscVersion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ConnectionError | null>(null);
 
   const refresh = useCallback(async () => {
     if (!appId) return;
     setLoading(true);
-    setError(null);
 
     try {
       const res = await fetch(`/api/apps/${appId}/versions`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "Failed to load versions");
-        setVersions([]);
+        setError({
+          message: data.error || "Failed to load versions",
+          category: data.category ?? "api",
+        });
         return;
       }
 
       const data = await res.json();
       setVersions(data.versions ?? []);
+      setError(null);
     } catch {
-      setError("Network error");
-      setVersions([]);
+      setError({ message: "Could not connect to the server", category: "network" });
     } finally {
       setLoading(false);
     }

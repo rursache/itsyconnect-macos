@@ -37,6 +37,7 @@ import { SubmissionChecklistProvider } from "@/lib/submission-checklist-context"
 import { BuildActionProvider } from "@/lib/build-action-context";
 import { RefreshProvider } from "@/lib/refresh-context";
 import { FooterPortalProvider } from "@/lib/footer-portal-context";
+import { ConnectionBanner } from "@/components/layout/connection-banner";
 import { BreadcrumbProvider } from "@/lib/breadcrumb-context";
 import { saveNavigation } from "@/lib/nav-state";
 
@@ -116,6 +117,7 @@ export default function DashboardLayout({
               </div>
             </div>
           </header>
+          <ConnectionBanner />
           <FooterPortalProvider>
           <div className="flex flex-1 flex-col overflow-y-auto pt-6 pb-8">
             <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6">

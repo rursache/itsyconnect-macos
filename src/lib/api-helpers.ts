@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
 import type { z } from "zod";
+import { AscApiError } from "@/lib/asc/client";
 
 /**
  * Build an error JSON response from a caught value.
- * Extracts the message from Error instances, falls back to a default string.
+ * For AscApiError, includes category and statusCode for client-side error handling.
  */
 export function errorJson(err: unknown, status = 502, fallback = "Unknown error"): NextResponse {
+  if (err instanceof AscApiError) {
+    const { message, category, statusCode } = err.ascError;
+    return NextResponse.json(
+      { error: message, category, statusCode },
+      { status: statusCode ?? status },
+    );
+  }
+
   const message = err instanceof Error ? err.message : fallback;
   return NextResponse.json({ error: message }, { status });
 }

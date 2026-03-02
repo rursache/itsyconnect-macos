@@ -4,9 +4,21 @@ import { eq } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { generateAscJwt } from "./jwt";
 import { acquireToken } from "./rate-limit";
+import { parseAscError, networkError } from "./errors";
+import type { AscError } from "./errors";
 
 const ASC_BASE = "https://api.appstoreconnect.apple.com";
 const MAX_RETRIES = 3;
+
+export class AscApiError extends Error {
+  readonly ascError: AscError;
+
+  constructor(ascError: AscError) {
+    super(ascError.message);
+    this.name = "AscApiError";
+    this.ascError = ascError;
+  }
+}
 
 function getActiveCredential() {
   return db
@@ -59,14 +71,19 @@ export async function ascFetch<T>(
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const response = await fetch(`${ASC_BASE}${path}`, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${ASC_BASE}${path}`, {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          ...options?.headers,
+        },
+      });
+    } catch {
+      throw new AscApiError(networkError());
+    }
 
     if (response.ok) {
       if (response.status === 204) return null as T;
@@ -83,13 +100,11 @@ export async function ascFetch<T>(
     const text = await response.text().catch(() => "");
     const method = options?.method ?? "GET";
     console.error(`[ASC] ${method} ${path} → ${response.status}: ${text.slice(0, 500)}`);
-    lastError = new Error(
-      `ASC API ${response.status}: ${text.slice(0, 200)}`,
-    );
+    lastError = new AscApiError(parseAscError(response.status, text));
     break;
   }
 
-  throw lastError ?? new Error("ASC API request failed");
+  throw lastError ?? new AscApiError({ category: "api", message: "ASC API request failed" });
 }
 
 export function resetToken(): void {
