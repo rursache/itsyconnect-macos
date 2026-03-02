@@ -14,15 +14,38 @@
 
 ---
 
-A macOS desktop app that replaces Apple's App Store Connect web dashboard with a faster, AI-augmented interface. Runs entirely on your machine – one SQLite file, zero cloud dependencies, master encryption key secured via macOS Keychain.
+A macOS desktop app that replaces Apple's App Store Connect web dashboard. Edit metadata across all locales at once, manage TestFlight builds and testers, review analytics, and respond to customer reviews – all from a single desktop window. AI translates your descriptions, keywords, and review replies into every language with one click.
 
-- **AI-powered metadata** – translate descriptions, keywords, what's new, names, and subtitles across all locales with one click. Bring your own API key from Anthropic, OpenAI, Google, xAI, Mistral, or DeepSeek.
-- **Bulk operations** – translate or copy all fields to one locale or every locale at once.
-- **Self-hosted and private** – no data leaves your machine except direct calls to Apple's API and your chosen AI provider. AES-256-GCM envelope encryption, master key in the macOS Keychain. No accounts, no cloud, no telemetry.
-- **Unified TestFlight** – builds, groups, testers, feedback, and beta app info in one interface with bulk actions.
-- **Customer reviews** – translate foreign reviews, draft replies, generate appeal text with AI.
-- **Screenshot management** – drag-and-drop reorder across all device categories and locales.
-- **Analytics** – downloads, proceeds, crashes, acquisition, usage – all in one place.
+Everything runs locally. One SQLite database, no cloud, no accounts, no telemetry. Credentials are encrypted with AES-256-GCM and the master key lives in the macOS Keychain.
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/1.webp" alt="App overview with version cards, downloads, proceeds, and crash-free rate" /></td>
+    <td><img src="docs/screenshots/2.webp" alt="Store listing editor with locale picker and AI translation" /></td>
+    <td><img src="docs/screenshots/3.webp" alt="Screenshot management with drag-and-drop reorder" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/4.webp" alt="TestFlight builds with status, groups, and session tracking" /></td>
+    <td><img src="docs/screenshots/5.webp" alt="Analytics dashboard with downloads, proceeds, and conversion funnel" /></td>
+    <td><img src="docs/screenshots/6.webp" alt="Customer reviews with ratings, filtering, and AI-drafted replies" /></td>
+  </tr>
+</table>
+
+## Features
+
+**Release management** – edit descriptions, keywords, what's new, promotional text, names, and subtitles for every locale. Pick builds, choose release method (manual, automatic, or scheduled), toggle phased rollout. Save everything in one click.
+
+**AI-powered localisation** – translate any field or all fields to one locale or every locale simultaneously. Generate optimised keywords. Draft professional review replies. Translate foreign reviews. Generate appeal text for unfair ratings. Bring your own API key from Anthropic, OpenAI, Google, xAI, Mistral, or DeepSeek.
+
+**TestFlight** – manage builds, beta groups, and testers in one interface. Add or remove builds from groups in bulk. Track installs, sessions, and crashes per build. Review tester feedback with device details and screenshots. Mark feedback as done.
+
+**Analytics** – impressions, downloads, proceeds, first-time downloads, sessions, crashes, and conversion funnel. Compare periods, break down by territory, track version adoption. Acquisition sources, usage patterns, and crash reports across separate tabs.
+
+**Customer reviews** – filter by rating, territory, or response status. Translate foreign-language reviews with one click. Draft replies with AI, automatically matching the reviewer's language. Edit and delete existing responses.
+
+**Screenshots** – upload, reorder with drag-and-drop, preview in lightbox, and delete screenshots across all device categories (iPhone, iPad, Mac, Apple TV, Apple Watch, Apple Vision) and locales.
+
+**Privacy and security** – local-first architecture. All data stays on your Mac in a single SQLite file. Credentials encrypted with AES-256-GCM envelope encryption, master key stored in the macOS Keychain. No cloud, no accounts, no telemetry.
 
 ## Quick start
 
@@ -39,8 +62,7 @@ The setup wizard will guide you through connecting your App Store Connect creden
 
 ```bash
 npm run electron:dev          # Launch Electron with hot reload
-npm run electron:make:dmg     # Build signed DMG
-npm run electron:publish      # Publish to GitHub Releases (draft)
+npm run electron:make:dmg     # Build signed DMG (dev/testing)
 npm run test                  # Run tests
 npm run test:watch            # Watch mode
 npm run test:coverage         # Coverage report
@@ -73,9 +95,10 @@ The app auto-updates via [update.electronjs.org](https://update.electronjs.org),
 
 1. Bump `APP_VERSION` and `BUILD_NUMBER` in `src/lib/version.ts`, and `"version"` in `package.json`
 2. Commit and push
-3. Publish to GitHub Releases (creates a draft with DMG + ZIP):
+3. Run the release script (builds, signs, notarizes, creates a draft GitHub release):
    ```bash
-   GITHUB_TOKEN=ghp_xxx npm run electron:publish
+   APPLE_ID=you@example.com APPLE_ID_PASSWORD=xxxx-xxxx-xxxx-xxxx APPLE_TEAM_ID=XXXXXXXXXX \
+     ./scripts/build-release.sh
    ```
 4. Review the draft release on GitHub, edit release notes, then click **Publish**
 5. `update.electronjs.org` picks up the new release – existing users are prompted to restart and update
