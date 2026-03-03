@@ -16,6 +16,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/empty-state";
+import { CreateGroupDialog } from "@/components/create-group-dialog";
 import { PaginatedList } from "@/components/paginated-list";
 import { CircleNotch, CaretDown, Prohibit, Plus, Minus, Package } from "@phosphor-icons/react";
 import { toast } from "sonner";
@@ -62,6 +64,7 @@ export default function TestFlightBuildsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [expireOpen, setExpireOpen] = useState(false);
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = useCallback(async (forceRefresh = false) => {
@@ -466,6 +469,11 @@ export default function TestFlightBuildsPage() {
                       {g.name}
                     </DropdownMenuItem>
                   ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setCreateGroupOpen(true)}>
+                    <Plus size={14} className="text-muted-foreground" />
+                    {"Add group\u2026"}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <DropdownMenu>
@@ -501,6 +509,13 @@ export default function TestFlightBuildsPage() {
           </div>
         </FooterPortal>
       )}
+
+      <CreateGroupDialog
+        open={createGroupOpen}
+        onOpenChange={setCreateGroupOpen}
+        appId={appId}
+        onCreated={() => fetchData(true)}
+      />
 
       {/* Expire confirmation dialog */}
       <AlertDialog open={expireOpen} onOpenChange={setExpireOpen}>

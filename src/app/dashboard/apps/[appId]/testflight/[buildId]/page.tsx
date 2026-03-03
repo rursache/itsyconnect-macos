@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { CreateGroupDialog } from "@/components/create-group-dialog";
 import { CircleNotch, Plus, X, UserPlus, MagnifyingGlass } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useRegisterRefresh } from "@/lib/refresh-context";
@@ -316,6 +317,7 @@ export default function BuildDetailPage() {
             onGroupRemoved={(groupId) => {
               setBuild((prev) => prev ? { ...prev, groupIds: prev.groupIds.filter((id) => id !== groupId) } : prev);
             }}
+            onGroupsChanged={() => fetchData(true)}
             linkSuffix={qs}
           />
 
@@ -342,6 +344,7 @@ function GroupsSection({
   availableGroups,
   onGroupAdded,
   onGroupRemoved,
+  onGroupsChanged,
   linkSuffix,
 }: {
   appId: string;
@@ -350,10 +353,12 @@ function GroupsSection({
   availableGroups: TFGroup[];
   onGroupAdded: (groupId: string) => void;
   onGroupRemoved: (groupId: string) => void;
+  onGroupsChanged: () => void;
   linkSuffix: string;
 }) {
   const [removing, setRemoving] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
 
   async function addGroup(groupId: string) {
     setAdding(true);
@@ -401,26 +406,29 @@ function GroupsSection({
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="section-title">Groups</h3>
-        {availableGroups.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" disabled={adding}>
-                <Plus size={14} className="mr-1.5" />
-                Add to group
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {availableGroups.map((g) => (
-                <DropdownMenuItem key={g.id} onClick={() => addGroup(g.id)}>
-                  <span className={`inline-flex size-4 items-center justify-center rounded text-[10px] font-medium ${g.isInternal ? "bg-muted text-muted-foreground" : "bg-blue-100 text-blue-700"}`}>
-                    {g.isInternal ? "I" : "E"}
-                  </span>
-                  {g.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" disabled={adding}>
+              <Plus size={14} className="mr-1.5" />
+              Add to group
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {availableGroups.map((g) => (
+              <DropdownMenuItem key={g.id} onClick={() => addGroup(g.id)}>
+                <span className={`inline-flex size-4 items-center justify-center rounded text-[10px] font-medium ${g.isInternal ? "bg-muted text-muted-foreground" : "bg-blue-100 text-blue-700"}`}>
+                  {g.isInternal ? "I" : "E"}
+                </span>
+                {g.name}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setCreateGroupOpen(true)}>
+              <Plus size={14} className="text-muted-foreground" />
+              {"Add group\u2026"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {buildGroups.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -462,6 +470,13 @@ function GroupsSection({
           ))}
         </div>
       )}
+
+      <CreateGroupDialog
+        open={createGroupOpen}
+        onOpenChange={setCreateGroupOpen}
+        appId={appId}
+        onCreated={onGroupsChanged}
+      />
     </section>
   );
 }
