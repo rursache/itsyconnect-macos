@@ -248,19 +248,19 @@ export function MagicWandButton({
           {hasKeywordActions && (
             <>
               <DropdownMenuItem onSelect={handleGenerateKeywords}>
-                Generate for locale
+                Generate for locale…
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={handleOptimizeKeywords}
                 disabled={!hasValue}
               >
-                Optimize
+                Optimize…
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={handleFillKeywordGaps}
                 disabled={!otherLocaleKeywords || Object.keys(otherLocaleKeywords).length === 0}
               >
-                Fill gaps from other locales
+                Fill gaps from other locales…
               </DropdownMenuItem>
             </>
           )}
