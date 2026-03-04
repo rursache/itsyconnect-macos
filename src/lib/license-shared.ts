@@ -2,7 +2,7 @@
 
 export const FREE_LIMITS = { apps: 1, teams: 1 } as const;
 
-export const CHECKOUT_URL = "https://itsyconnect.lemonsqueezy.com/checkout/buy/303396d1-9ac4-48ed-9da8-2c6de4800dfa";
+export const CHECKOUT_URL = "https://store.itsyapps.com/checkout/buy/24eefb3e-182a-4766-981e-cfe0f6753291";
 
 /** Mask a license key to show only the first 8 characters. */
 export function maskKey(key: string): string {

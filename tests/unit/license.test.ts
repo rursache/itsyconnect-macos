@@ -48,8 +48,8 @@ describe("license", () => {
   });
 
   describe("CHECKOUT_URL", () => {
-    it("is a LemonSqueezy URL", () => {
-      expect(CHECKOUT_URL).toContain("lemonsqueezy.com");
+    it("is a valid checkout URL", () => {
+      expect(CHECKOUT_URL).toContain("store.itsyapps.com/checkout");
     });
   });
 

@@ -52,7 +52,7 @@ Everything runs locally. One SQLite database, no cloud, no accounts, no telemetr
 
 ## Free vs Pro
 
-Itsyconnect is free to use with one app and one developer account. A one-time Pro licence removes all limits – unlimited apps and accounts. Licences are handled via [LemonSqueezy](https://itsyconnect.lemonsqueezy.com).
+Itsyconnect is free to use with one app and one developer account. A one-time Pro licence removes all limits – unlimited apps and accounts. Licences are handled via [LemonSqueezy](https://store.itsyapps.com).
 
 | | Free | Pro |
 |---|---|---|
