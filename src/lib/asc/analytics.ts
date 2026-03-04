@@ -891,7 +891,7 @@ function startBackfill(requestIds: string[], appId: string, cacheKey: string) {
       if (depth === Infinity) break;
     }
     markBackfilled(appId);
-    console.log(`[analytics] Backfill complete for ${appId}`);
+    console.log(`[analytics] Backfill complete for ${appId}: ${prevCount} total data points`);
   })()
     .catch((err) => console.error(`[analytics] Backfill failed for ${appId}:`, err))
     .finally(() => backfilling.delete(appId));
@@ -935,10 +935,16 @@ async function buildAnalyticsDataInner(
   const data = await buildPhase(requestIds, appId, 30);
   const phase1Ms = Date.now() - phase1Start;
 
-  const dlDays = data.dailyDownloads.length;
-  const revDays = data.dailyRevenue.length;
-  const sessDays = data.dailySessions.length;
-  console.log(`[analytics] ${appId}: phase 1 in ${(phase1Ms / 1000).toFixed(1)}s – ${dlDays}d downloads, ${revDays}d revenue, ${sessDays}d sessions`);
+  const reports = [
+    `downloads=${data.dailyDownloads.length}d`,
+    `revenue=${data.dailyRevenue.length}d`,
+    `engagement=${data.dailyEngagement.length}d`,
+    `sessions=${data.dailySessions.length}d`,
+    `installs=${data.dailyInstallsDeletes.length}d`,
+    `optIn=${data.dailyOptIn.length}d`,
+    `crashes=${data.dailyCrashes.length}d`,
+  ].join(", ");
+  console.log(`[analytics] ${appId}: phase 1 in ${(phase1Ms / 1000).toFixed(1)}s – ${reports}`);
 
   cacheSet(cacheKey, data, ANALYTICS_TTL);
 

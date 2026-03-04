@@ -1,4 +1,4 @@
-import { app, autoUpdater, BrowserWindow, dialog, Menu, safeStorage, ipcMain, screen, shell, protocol, net } from "electron";
+import { app, autoUpdater, BrowserWindow, clipboard, dialog, Menu, safeStorage, ipcMain, screen, shell, protocol, net } from "electron";
 import { spawn, ChildProcess } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import { createServer as createNetServer } from "node:net";
 import { pathToFileURL } from "node:url";
 import http from "node:http";
+import { initLogger, getLogPath, getLogDir } from "./logger";
 
 const isDev = !app.isPackaged;
 let nextProcess: ChildProcess | null = null;
@@ -340,6 +341,50 @@ function setupMenu(): void {
         { role: "close" },
       ],
     },
+    {
+      label: "Help",
+      submenu: [
+        {
+          label: "Copy diagnostics to clipboard",
+          click: () => {
+            const logFile = getLogPath();
+            let recentLogs = "";
+            try {
+              const content = fs.readFileSync(logFile, "utf-8");
+              const lines = content.split("\n");
+              recentLogs = lines.slice(-200).join("\n");
+            } catch {
+              recentLogs = "(no log file found)";
+            }
+
+            const diagnostics = [
+              "## Itsyconnect diagnostics",
+              "",
+              `- **App version:** ${app.getVersion()}`,
+              `- **macOS:** ${process.getSystemVersion()}`,
+              `- **Electron:** ${process.versions.electron}`,
+              `- **Chrome:** ${process.versions.chrome}`,
+              `- **Node:** ${process.versions.node}`,
+              "",
+              "### Recent logs",
+              "",
+              "```",
+              recentLogs.trim(),
+              "```",
+            ].join("\n");
+
+            clipboard.writeText(diagnostics);
+            dialog.showMessageBox({ message: "Diagnostics copied to clipboard." });
+          },
+        },
+        {
+          label: "Show log files",
+          click: () => {
+            shell.openPath(getLogDir());
+          },
+        },
+      ],
+    },
   ];
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -433,6 +478,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
+    initLogger();
     process.env.ELECTRON = "1";
     ensureMasterKey();
     setDatabasePath();
@@ -443,6 +489,7 @@ if (!gotLock) {
     createWindow(port);
     setupMenu();
     setupAutoUpdater();
+    console.log(`[main] App started on port ${port} (${isDev ? "dev" : "prod"})`);
 
     // --- Update IPC handlers ---
 

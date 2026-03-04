@@ -2,13 +2,13 @@ import type { ForgeConfig } from "@electron-forge/shared-types";
 import { MakerDMG } from "@electron-forge/maker-dmg";
 
 import { MakerZIP } from "@electron-forge/maker-zip";
-import { BUILD_NUMBER } from "./src/lib/version";
+import { APP_VERSION, BUILD_NUMBER } from "./src/lib/version";
 
 const config: ForgeConfig = {
   packagerConfig: {
     appBundleId: "com.itsyconnect.app",
     name: "Itsyconnect",
-    appVersion: process.env.npm_package_version,
+    appVersion: APP_VERSION,
     buildVersion: BUILD_NUMBER,
     icon: "public/icon",
     asar: false,

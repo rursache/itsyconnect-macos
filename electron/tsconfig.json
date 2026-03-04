@@ -11,5 +11,5 @@
     "resolveJsonModule": true,
     "skipLibCheck": true
   },
-  "files": ["main.ts", "preload.ts"]
+  "files": ["main.ts", "preload.ts", "logger.ts"]
 }
