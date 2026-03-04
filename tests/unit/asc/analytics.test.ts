@@ -17,6 +17,17 @@ vi.mock("@/lib/cache", () => ({
   cacheSet: (...args: unknown[]) => mockCacheSet(...args),
 }));
 
+vi.mock("@/db", () => ({
+  db: {
+    select: () => ({ from: () => ({ where: () => ({ get: () => null }) }) }),
+    insert: () => ({ values: () => ({ onConflictDoNothing: () => ({ run: () => {} }) }) }),
+  },
+}));
+
+vi.mock("@/db/schema", () => ({
+  analyticsBackfill: {},
+}));
+
 // Replace global fetch
 vi.stubGlobal("fetch", mockFetch);
 
@@ -1875,11 +1886,10 @@ describe("console logging", () => {
 
     await buildAnalyticsData("app-log");
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[analytics] Fetching app-log"),
+      expect.stringContaining("[analytics] Building app-log"),
     );
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[analytics] Done app-log"),
-      // The timing message
+      expect.stringContaining("[analytics] app-log: phase 1"),
     );
   });
 
@@ -1894,8 +1904,7 @@ describe("console logging", () => {
 
     await buildAnalyticsData("app-logdetail");
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[analytics] Found 1 report requests"),
-      expect.arrayContaining([expect.stringContaining("req-logdetail (ONGOING)")]),
+      expect.stringContaining("[analytics] app-logdetail: 1 report requests"),
     );
   });
 });
