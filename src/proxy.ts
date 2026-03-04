@@ -32,7 +32,7 @@ export async function proxy(request: NextRequest) {
       if (data.setup) {
         return NextResponse.redirect(new URL("/setup", request.url));
       }
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      return NextResponse.redirect(new URL("/dashboard?entry=1", request.url));
     } catch {
       // If health check fails, let the request through
     }

@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   DownloadSimple,
   CurrencyDollar,
   AppWindow,
 } from "@phosphor-icons/react";
+import { getLastUrl } from "@/lib/nav-state";
 import {
   CartesianGrid,
   Line,
@@ -46,8 +48,23 @@ interface AppAnalytics {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { apps, loading } = useApps();
   const [analytics, setAnalytics] = useState<Record<string, AppAnalytics>>({});
+
+  // entry=1 means proxy redirected here on app launch – go to last app
+  const isEntry = searchParams.get("entry") === "1";
+  useEffect(() => {
+    if (!isEntry || loading || apps.length === 0) return;
+    const saved = getLastUrl();
+    const savedAppId = saved?.match(/^\/dashboard\/apps\/([^/?]+)/)?.[1];
+    const appIds = new Set(apps.map((a) => a.id));
+    const target = saved && savedAppId && appIds.has(savedAppId)
+      ? saved
+      : `/dashboard/apps/${apps[0].id}`;
+    router.replace(target);
+  }, [isEntry, apps, loading, router]);
 
   const fetchAnalytics = useCallback(async (appId: string) => {
     try {
@@ -162,6 +179,16 @@ export default function DashboardPage() {
     [chartConfig],
   );
 
+  if (isEntry) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background">
+        <div className="drag fixed inset-x-0 top-0 h-16" />
+        <Spinner className="size-6 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Getting things ready…</p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -194,6 +221,10 @@ export default function DashboardPage() {
   }
 
   const anyLoaded = Object.values(analytics).some((a) => !a.loading);
+  const allPending = Object.values(analytics).length > 0
+    && Object.values(analytics).every((a) => !a.loading && a.pending && !a.data);
+  const noData = anyLoaded
+    && Object.values(analytics).every((a) => !a.loading && !a.data);
 
   return (
     <div className="space-y-6">
@@ -222,7 +253,18 @@ export default function DashboardPage() {
       </div>
 
       {/* Proceeds chart */}
-      {chartData.length > 0 && (
+      {allPending || (!anyLoaded && Object.keys(analytics).length > 0) ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
+          <Spinner className="size-6 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Fetching analytics data – this may take a moment on first load
+          </p>
+        </div>
+      ) : noData ? (
+        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          No analytics data available yet.
+        </div>
+      ) : chartData.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">Proceeds (30d)</CardTitle>
@@ -283,7 +325,7 @@ export default function DashboardPage() {
             </ChartContainer>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       {/* App cards grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

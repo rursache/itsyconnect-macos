@@ -69,7 +69,7 @@ export function NavFooter() {
       });
       if (res.ok) {
         await fetchAccounts();
-        router.push("/dashboard");
+        router.push("/dashboard?entry=1");
         router.refresh();
       }
     } finally {
@@ -80,7 +80,7 @@ export function NavFooter() {
   async function handleAccountAdded() {
     setDialogOpen(false);
     await fetchAccounts();
-    router.push("/dashboard");
+    router.push("/dashboard?entry=1");
     router.refresh();
   }
 

@@ -42,7 +42,7 @@ export default function SetupPage() {
       .then((res) => res.json())
       .then((data) => {
         if (!data.setup) {
-          router.replace("/dashboard");
+          router.replace("/dashboard?entry=1");
         } else {
           setReady(true);
           (window as { electron?: { ready: () => void } }).electron?.ready();
@@ -208,7 +208,7 @@ export default function SetupPage() {
       }
 
       toast.success("Setup complete");
-      router.push("/dashboard");
+      router.push("/dashboard?entry=1");
       router.refresh();
     } catch {
       toast.error("Network error");
