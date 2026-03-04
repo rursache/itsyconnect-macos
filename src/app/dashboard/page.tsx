@@ -29,8 +29,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/empty-state";
 import { KpiCard } from "@/components/kpi-card";
 import { AppIcon } from "@/components/app-icon";
+import { DateRangePicker } from "@/components/analytics-range-picker";
 import { useApps } from "@/lib/apps-context";
 import { formatDateShort } from "@/lib/format";
+import { parseRange, filterByDateRange } from "@/lib/analytics-range";
 import type { AnalyticsData } from "@/lib/asc/analytics";
 
 const CHART_COLORS = [
@@ -52,6 +54,7 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const { apps, loading } = useApps();
   const [analytics, setAnalytics] = useState<Record<string, AppAnalytics>>({});
+  const [range, setRange] = useState<string | null>(null);
 
   // entry=1 means proxy redirected here on app launch – go to last app
   const isEntry = searchParams.get("entry") === "1";
@@ -131,6 +134,8 @@ export default function DashboardPage() {
     return { totalDownloads: downloads, totalProceeds: proceeds, proceeds7d: p7d, proceedsYesterday: pYesterday };
   }, [analytics]);
 
+  const parsed = useMemo(() => parseRange(range), [range]);
+
   // Proceeds chart data: merge all apps' dailyRevenue by date
   const { chartData, chartConfig } = useMemo(() => {
     const dateMap: Record<string, Record<string, number>> = {};
@@ -140,7 +145,8 @@ export default function DashboardPage() {
       const entry = analytics[app.id];
       if (!entry?.data) continue;
       appNames.push(app.name);
-      for (const r of entry.data.dailyRevenue) {
+      const filtered = filterByDateRange(entry.data.dailyRevenue, parsed);
+      for (const r of filtered) {
         if (!dateMap[r.date]) dateMap[r.date] = {};
         dateMap[r.date][app.name] = r.proceeds;
       }
@@ -172,7 +178,7 @@ export default function DashboardPage() {
     };
 
     return { chartData: data, chartConfig: config };
-  }, [apps, analytics]);
+  }, [apps, analytics, parsed]);
 
   const appNames = useMemo(
     () => Object.keys(chartConfig).filter((k) => k !== "Total"),
@@ -266,8 +272,9 @@ export default function DashboardPage() {
         </div>
       ) : chartData.length > 0 ? (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Proceeds (30d)</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm font-medium">Proceeds</CardTitle>
+            <DateRangePicker value={range} onChange={setRange} />
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[280px] w-full">

@@ -35,29 +35,23 @@ function generateMonths(count: number): Array<{ value: string; label: string }> 
   return months;
 }
 
-export function AnalyticsRangePicker() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+interface DateRangePickerProps {
+  value: string | null;
+  lastDate?: string;
+  onChange: (range: string | null) => void;
+}
+
+export function DateRangePicker({ value, lastDate, onChange }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarRange, setCalendarRange] = useState<RdpDateRange | undefined>();
-  const { lastDate } = useAnalytics();
 
-  const currentRange = searchParams.get("range");
-  const parsed = parseRange(currentRange, lastDate);
+  const parsed = parseRange(value, lastDate);
 
   const months = useMemo(() => generateMonths(12), []);
 
-  function navigate(rangeValue: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (rangeValue === "30d") {
-      params.delete("range");
-    } else {
-      params.set("range", rangeValue);
-    }
-    const qs = params.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ""}`);
+  function select(rangeValue: string) {
+    onChange(rangeValue === "30d" ? null : rangeValue);
     setOpen(false);
     setShowCalendar(false);
   }
@@ -65,20 +59,17 @@ export function AnalyticsRangePicker() {
   function handleCalendarSelect(range: RdpDateRange | undefined) {
     setCalendarRange(range);
     if (!range?.from || !range?.to) return;
-    // Ignore single-click where from === to (first click in range selection)
     if (range.from.getTime() === range.to.getTime()) return;
     const from = range.from.toISOString().slice(0, 10);
     const to = range.to.toISOString().slice(0, 10);
-    navigate(`${from}..${to}`);
+    select(`${from}..${to}`);
   }
 
-  // Derive calendar default month from current range
   const calendarDefault = useMemo(() => new Date(parsed.from + "T00:00:00"), [parsed.from]);
 
-  // Determine which preset/month is active
-  const activePreset = PRESETS.find((p) => p.value === currentRange)?.value
-    ?? (!currentRange ? "30d" : null);
-  const activeMonth = months.find((m) => m.value === currentRange)?.value ?? null;
+  const activePreset = PRESETS.find((p) => p.value === value)?.value
+    ?? (!value ? "30d" : null);
+  const activeMonth = months.find((m) => m.value === value)?.value ?? null;
 
   return (
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setShowCalendar(false); }}>
@@ -121,7 +112,7 @@ export function AnalyticsRangePicker() {
                   key={p.value}
                   variant={activePreset === p.value ? "default" : "outline"}
                   size="xs"
-                  onClick={() => navigate(p.value)}
+                  onClick={() => select(p.value)}
                 >
                   {p.label}
                 </Button>
@@ -142,7 +133,7 @@ export function AnalyticsRangePicker() {
                     variant={activeMonth === m.value ? "secondary" : "ghost"}
                     size="sm"
                     className="justify-start text-sm"
-                    onClick={() => navigate(m.value)}
+                    onClick={() => select(m.value)}
                   >
                     {m.label}
                   </Button>
@@ -165,5 +156,33 @@ export function AnalyticsRangePicker() {
         )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+export function AnalyticsRangePicker() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { lastDate } = useAnalytics();
+
+  const currentRange = searchParams.get("range");
+
+  function handleChange(range: string | null) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (range === null) {
+      params.delete("range");
+    } else {
+      params.set("range", range);
+    }
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`);
+  }
+
+  return (
+    <DateRangePicker
+      value={currentRange}
+      lastDate={lastDate}
+      onChange={handleChange}
+    />
   );
 }
