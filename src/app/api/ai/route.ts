@@ -115,7 +115,12 @@ export async function POST(request: Request) {
   try {
     const settings = await getAISettings();
     if (!settings) throw new Error("AI not configured");
-    model = createLanguageModel(settings.provider, settings.modelId, settings.apiKey);
+    model = createLanguageModel(
+      settings.provider,
+      settings.modelId,
+      settings.apiKey,
+      settings.baseUrl ?? undefined,
+    );
     providerId = settings.provider;
     modelId = settings.modelId;
   } catch {
