@@ -3,6 +3,11 @@ export const DEFAULT_LOCAL_OPENAI_BASE_URL = "http://127.0.0.1:1234/v1";
 export const DEFAULT_LOCAL_OPENAI_API_KEY = "lm-studio";
 
 const CHAT_COMPLETIONS_SUFFIX = "/chat/completions";
+const RECENT_LOAD_WINDOW_MS = 15_000;
+
+const recentLoadedModelByServer = new Map<string, { modelId: string; at: number }>();
+const inFlightLoads = new Map<string, Promise<string | null>>();
+const unsupportedLoadEndpointServers = new Set<string>();
 
 /** Normalize an OpenAI-compatible base URL to the `/v1` API root. */
 export function normalizeOpenAICompatibleBaseUrl(input: string): string | null {
@@ -90,6 +95,21 @@ export async function ensureLocalModelLoaded(
     return "Invalid local server URL";
   }
 
+  if (unsupportedLoadEndpointServers.has(serverRoot)) {
+    return null;
+  }
+
+  const recent = recentLoadedModelByServer.get(serverRoot);
+  if (recent && recent.modelId === modelId && Date.now() - recent.at < RECENT_LOAD_WINDOW_MS) {
+    return null;
+  }
+
+  const loadKey = `${serverRoot}::${modelId}`;
+  const existingLoad = inFlightLoads.get(loadKey);
+  if (existingLoad) {
+    return existingLoad;
+  }
+
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };
@@ -98,37 +118,55 @@ export async function ensureLocalModelLoaded(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  try {
-    const res = await fetch(`${serverRoot}/api/v1/models/load`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ model: modelId }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(60_000),
-    });
-
-    if (res.ok) {
-      return null;
-    }
-
-    const raw = await res.text();
-    let payload: LoadModelErrorShape = {};
+  const loadPromise = (async () => {
     try {
-      payload = raw ? JSON.parse(raw) as LoadModelErrorShape : {};
-    } catch {
-      payload = {};
-    }
+      const res = await fetch(`${serverRoot}/api/v1/models/load`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ model: modelId }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(60_000),
+      });
 
-    if (res.status === 404 || res.status === 405) {
-      // Non-LM Studio local servers may not implement this endpoint.
-      // If we got a structured error message, surface it. Otherwise ignore.
-      const maybeMessage = payload.error?.message || payload.message;
-      return maybeMessage ?? null;
-    }
+      if (res.ok) {
+        recentLoadedModelByServer.set(serverRoot, { modelId, at: Date.now() });
+        return null;
+      }
 
-    return payload.error?.message || payload.message || `Model load failed with status ${res.status}`;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return `Could not switch local model: ${message}`;
+      const raw = await res.text();
+      let payload: LoadModelErrorShape = {};
+      try {
+        payload = raw ? JSON.parse(raw) as LoadModelErrorShape : {};
+      } catch {
+        payload = {};
+      }
+
+      if (res.status === 404 || res.status === 405) {
+        // Non-LM Studio local servers may not implement this endpoint.
+        // If we got a structured error message, surface it. Otherwise ignore.
+        const maybeMessage = payload.error?.message || payload.message;
+        if (maybeMessage) return maybeMessage;
+        unsupportedLoadEndpointServers.add(serverRoot);
+        return null;
+      }
+
+      return payload.error?.message || payload.message || `Model load failed with status ${res.status}`;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return `Could not switch local model: ${message}`;
+    }
+  })();
+
+  inFlightLoads.set(loadKey, loadPromise);
+  try {
+    return await loadPromise;
+  } finally {
+    inFlightLoads.delete(loadKey);
   }
+}
+
+export function resetLocalModelLoadStateForTests() {
+  recentLoadedModelByServer.clear();
+  inFlightLoads.clear();
+  unsupportedLoadEndpointServers.clear();
 }

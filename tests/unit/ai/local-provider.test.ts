@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ensureLocalModelLoaded,
   normalizeOpenAICompatibleBaseUrl,
+  resetLocalModelLoadStateForTests,
   resolveLocalOpenAIBaseUrl,
 } from "@/lib/ai/local-provider";
 
@@ -31,6 +32,7 @@ describe("resolveLocalOpenAIBaseUrl", () => {
 
 describe("ensureLocalModelLoaded", () => {
   afterEach(() => {
+    resetLocalModelLoadStateForTests();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -111,5 +113,51 @@ describe("ensureLocalModelLoaded", () => {
     );
 
     expect(result).toContain("Could not switch local model");
+  });
+
+  it("coalesces concurrent loads for same server+model", async () => {
+    let resolveFetch: ((value: Response) => void) | undefined;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = ensureLocalModelLoaded("gemma-3", "http://127.0.0.1:1234/v1", undefined);
+    const second = ensureLocalModelLoaded("gemma-3", "http://127.0.0.1:1234/v1", undefined);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    resolveFetch?.(new Response("{}", { status: 200 }));
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    expect(firstResult).toBeNull();
+    expect(secondResult).toBeNull();
+  });
+
+  it("skips repeated loads for same model within throttle window", async () => {
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = await ensureLocalModelLoaded("gemma-3", "http://127.0.0.1:1234/v1", undefined);
+    const second = await ensureLocalModelLoaded("gemma-3", "http://127.0.0.1:1234/v1", undefined);
+
+    expect(first).toBeNull();
+    expect(second).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("caches unsupported load endpoint per server", async () => {
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = await ensureLocalModelLoaded("gemma-3", "http://127.0.0.1:1234/v1", undefined);
+    const second = await ensureLocalModelLoaded("glm-4.7-flash", "http://127.0.0.1:1234/v1", undefined);
+
+    expect(first).toBeNull();
+    expect(second).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
