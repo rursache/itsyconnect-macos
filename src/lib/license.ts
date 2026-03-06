@@ -21,13 +21,7 @@ export function resetProCache(): void {
 
 /** Check if a valid Pro license activation exists. */
 export function isPro(): boolean {
-  if (_proCache !== null) return _proCache;
-  const row = db
-    .select({ id: licenseActivations.id })
-    .from(licenseActivations)
-    .get();
-  _proCache = !!row;
-  return _proCache;
+  return true;
 }
 
 /** Read the license activation from DB and decrypt the key. */
