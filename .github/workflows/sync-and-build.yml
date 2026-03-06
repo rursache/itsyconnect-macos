@@ -1,0 +1,58 @@
+name: Sync upstream and build
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.rebase.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream and fetch
+        run: |
+          git remote add upstream https://github.com/nickustinov/itsyconnect-macos.git
+          git fetch upstream main
+
+      - name: Rebase onto upstream
+        id: rebase
+        run: |
+          BEFORE=$(git rev-parse HEAD)
+          if ! git rebase upstream/main; then
+            echo "::warning::Rebase conflict – manual resolution required"
+            git rebase --abort
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          AFTER=$(git rev-parse HEAD)
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Already up to date."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New upstream changes rebased."
+          fi
+
+      - name: Push rebased changes
+        if: steps.rebase.outputs.changed == 'true'
+        run: git push --force-with-lease
+
+  build:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    uses: ./.github/workflows/build.yml
